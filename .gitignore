@@ -1,0 +1,14 @@
+*.swp
+/*egg-info
+*.pyc
+/dist/
+*.pypirc
+/*.pypirc
+/build/
+/idea/
+/.vscode/
+/pytest_cache/
+/venv/
+bin/
+lib/
+lib64

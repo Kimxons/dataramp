@@ -1,0 +1,13 @@
+seaborn
+numpy
+pandas
+matplotlib
+notebook
+MarkupSafe
+jupyter-core
+jupyter-console
+jupyter-client
+jupyter
+ipython3
+ipykernel
+importlib-metadata
