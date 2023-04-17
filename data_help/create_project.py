@@ -41,7 +41,7 @@ def create_project(project_name: Optional[str]):
     logging.basicConfig(filename=log_filename, level=logging.DEBUG)
     logging.info("Creating project...")
 
-    # The project directory structure
+    # project directory structure
     base_path = Path.cwd() / project_name
     data_path = base_path / "data"
     processed_path = data_path / "processed"
@@ -57,7 +57,7 @@ def create_project(project_name: Optional[str]):
     notebooks_path = src_path / "notebooks"
 
     # the project directories
-    directories = [
+    dirs = [
         base_path,
         data_path,
         processed_path,
@@ -73,7 +73,7 @@ def create_project(project_name: Optional[str]):
         notebooks_path
     ]
 
-    for dir in directories:
+    for dir in dirs:
         create_directory(dir)
 
     # project config settings
@@ -100,8 +100,8 @@ def create_project(project_name: Optional[str]):
 def model_save(model, name="model", method="joblib"):
     """
     Save a trained machine learning model in the models folder.
-    Folders must be initialized using the datasist start_project function.
-    Creates a folder models if datasist standard directory is not provided.
+    Folders must be initialized using the data_help start_project function.
+    Creates a folder models if data_help standard directory is not provided.
     Parameters:
         model: binary file, Python object
             Trained model file to save in the models folder.
