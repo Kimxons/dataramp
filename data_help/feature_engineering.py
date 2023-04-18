@@ -5,6 +5,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import platform
 
+#check for macOs - plt might misbehave
 if platform.system() == "Darwin":
     plt.switch_backend("TkAgg")
 else:
@@ -12,6 +13,8 @@ else:
 
 from dateutil.parser import parse
 
+# pre-processing data - remove noise andd missing data
+# TODO - can't have None for the input dataframe (make it mandatory)
 def drop_missing(data=None, threshold=95):
     '''
     Drops missing columns with threshold of missing data.
@@ -28,7 +31,7 @@ def drop_missing(data=None, threshold=95):
     if data is None:
         data = pd.DataFrame()
 
-    if isinstance(data, (pd.DataFrame, pd.Series)):
+    if not isinstance(data, (pd.DataFrame, pd.Series)):
         raise TypeError(f"data must be a pandas DataFrame or Series, but got {type(data)}")
 
     missing_data = data.isna().mean() * 100
@@ -40,4 +43,4 @@ def drop_missing(data=None, threshold=95):
         print(f"Dropped {n_cols_dropped}/{n_cols_orig} ({n_cols_dropped/n_cols_orig:.1%}) columns.")
         data = data.drop(columns=cols_to_drop, axis=1)
 
-     return data
+    return data

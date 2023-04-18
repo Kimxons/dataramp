@@ -10,6 +10,7 @@ from pathlib import Path
 from utils import _get_path
 from typing import Optional
 
+#import pytorch 
 
 def create_directory(path: Optional[Path]):
     """Create a directory if it does not exist already"""
@@ -43,7 +44,7 @@ def create_project(project_name: Optional[str]):
 
     # project directory structure
     base_path = Path.cwd() / project_name
-    data_path = base_path / "data"
+    data_path = base_path / "datasets"
     processed_path = data_path / "processed"
     raw_path = data_path / "raw"
     output_path = base_path / "outputs"
