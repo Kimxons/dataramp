@@ -5,7 +5,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import platform
 
-#check for macOs - plt might misbehave
+# check for macOs - plt might misbehave
 if platform.system() == "Darwin":
     plt.switch_backend("TkAgg")
 else:
@@ -15,10 +15,12 @@ from dateutil.parser import parse
 
 # pre-processing data - remove noise andd missing data
 # TODO - can't have None for the input dataframe (make it mandatory)
+
+
 def drop_missing(data=None, threshold=95):
     '''
     Drops missing columns with threshold of missing data.
-    
+
     Parameters:
         data: Pandas DataFrame or Series, default None
             The input DataFrame or Series.
@@ -32,7 +34,8 @@ def drop_missing(data=None, threshold=95):
         data = pd.DataFrame()
 
     if not isinstance(data, (pd.DataFrame, pd.Series)):
-        raise TypeError(f"data must be a pandas DataFrame or Series, but got {type(data)}")
+        raise TypeError(
+            f"data must be a pandas DataFrame or Series, but got {type(data)}")
 
     missing_data = data.isna().mean() * 100
     cols_to_drop = missing_data[missing_data >= threshold].index
@@ -40,7 +43,27 @@ def drop_missing(data=None, threshold=95):
     if not cols_to_drop.empty:
         n_cols_dropped = len(cols_to_drop)
         n_cols_orig = data.shape[1]
-        print(f"Dropped {n_cols_dropped}/{n_cols_orig} ({n_cols_dropped/n_cols_orig:.1%}) columns.")
+        print(
+            f"Dropped {n_cols_dropped}/{n_cols_orig} ({n_cols_dropped/n_cols_orig:.1%}) columns.")
         data = data.drop(columns=cols_to_drop, axis=1)
 
     return data
+
+
+# def check_correlation(data=None, threshold=85):
+#     '''
+#     Checks for correlated columns in the dataframe
+
+#     Parameters:
+#         data: Pandas DataFrame or Series, default None
+#               The input DataFrame or Series.
+#         threshold: float, default=85
+#     Returns:
+#         Pandas DataFrame or Series
+#     '''
+
+#     if data is None:
+#         data = pd.DataFrame()
+#     if not isinstance(data, (pd.DataFrame, pd.Series):
+#             raise TypeError(
+#                 f"data must be a Pandas DataFrame or Series, but got {type(data)}")
