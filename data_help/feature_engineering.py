@@ -1,7 +1,7 @@
-import re
+from typing import List, Union
 import pandas as pd
-import seaborn as sns
 import numpy as np
+from typing import Union
 import matplotlib.pyplot as plt
 import platform
 
@@ -11,13 +11,10 @@ if platform.system() == "Darwin":
 else:
     plt.switch_backend("Agg")
 
-from dateutil.parser import parse
-
 # pre-processing data - remove noise andd missing data
-# TODO - can't have None for the input dataframe (make it mandatory)
 
 
-def drop_missing(data=None, threshold=95):
+def drop_missing(data: Union[pd.DataFrame, pd.Series], threshold=95) -> None:
     '''
     Drops missing columns with threshold of missing data.
 
@@ -45,25 +42,115 @@ def drop_missing(data=None, threshold=95):
         n_cols_orig = data.shape[1]
         print(
             f"Dropped {n_cols_dropped}/{n_cols_orig} ({n_cols_dropped/n_cols_orig:.1%}) columns.")
-        data = data.drop(columns=cols_to_drop, axis=1)
+        data = data.drop(columns=cols_to_drop, axis=1, inplace=True)
 
     return data
 
 
-# def check_correlation(data=None, threshold=85):
-#     '''
-#     Checks for correlated columns in the dataframe
+def min_max_scaling(X: np.ndarray) -> np.ndarray:
+    """
+    Apply min-max scaling to a numpy array.
 
-#     Parameters:
-#         data: Pandas DataFrame or Series, default None
-#               The input DataFrame or Series.
-#         threshold: float, default=85
-#     Returns:
-#         Pandas DataFrame or Series
-#     '''
+    Parameters
+    ----------
+    X : numpy ndarray, shape (n_samples, n_features)
+        The data to be scaled.
 
-#     if data is None:
-#         data = pd.DataFrame()
-#     if not isinstance(data, (pd.DataFrame, pd.Series):
-#             raise TypeError(
-#                 f"data must be a Pandas DataFrame or Series, but got {type(data)}")
+    Returns
+    -------
+    X_scaled : numpy ndarray, shape (n_samples, n_features)
+        The scaled data.
+    """
+    X_min = np.min(X, axis=0)
+    X_max = np.max(X, axis=0)
+    X_scaled = (X - X_min) / (X_max - X_min)
+    return X_scaled
+
+
+def z_score_normalization(X: np.ndarray) -> np.ndarray:
+    """
+    Apply z-score normalization to a numpy array.
+
+    Parameters
+    ----------
+    X : numpy ndarray, shape (n_samples, n_features)
+        The data to be normalized.
+
+    Returns
+    -------
+    X_normalized : numpy ndarray, shape (n_samples, n_features)
+        The normalized data.
+    """
+    X_mean = np.mean(X, axis=0)
+    X_std = np.std(X, axis=0)
+    X_normalized = (X - X_mean) / X_std
+    return X_normalized
+
+
+def log_transform(X: np.ndarray) -> np.ndarray:
+    """
+    Apply log transformation to a numpy array.
+
+    Parameters
+    ----------
+    X : numpy ndarray, shape (n_samples, n_features)
+        The data to be transformed.
+
+    Returns
+    -------
+    X_transformed : numpy ndarray, shape (n_samples, n_features)
+        The transformed data.
+    """
+    X_transformed = np.log(X)
+    return X_transformed
+
+
+def detect_outliers(data: Union[pd.DataFrame, pd.Series], features, n=2):
+    '''
+    Detects rows with outliers using Tukey's Interquartile Range (IQR) method.
+
+    Parameters
+    ----------
+    data : pandas.DataFrame or pandas.Series
+        The input data to be checked for outliers.
+    features : list of str or None
+        The list of features (columns) to check for outliers. If None, all columns will be checked.
+    n : int, optional
+        The maximum number of outliers allowed per feature. Default is 2.
+
+    Returns
+    -------
+    pandas.Index
+        The indices of rows containing outliers.
+    '''
+    if not isinstance(data, (pd.DataFrame, pd.Series)):
+        raise TypeError(
+            f"data must be a pandas DataFrame or Series, but got {type(data)}")
+
+    if features is not None:
+        if not isinstance(features, list):
+            raise TypeError(
+                f"features must be a list, but got {type(features)}")
+        for feature in features:
+            if feature not in data.columns:
+                raise ValueError(f"Column '{feature}' not found in data")
+    else:
+        features = data.columns
+
+    outlier_indices = []
+
+    for col in features:
+        Q1, Q3 = np.nanpercentile(data[col], [25, 75])
+        IQR = Q3 - Q1
+
+        outlier_list_col = data[(data[col] < Q1 - 1.5 * IQR)
+                                | (data[col] > Q3 + 1.5 * IQR)].index
+
+        outlier_indices.extend(outlier_list_col)
+
+    outlier_indices = pd.Index(outlier_indices)
+    outlier_indices = outlier_indices[outlier_indices.duplicated(keep=False)]
+    outlier_indices_counts = outlier_indices.value_counts()
+    multiple_outliers = outlier_indices_counts[outlier_indices_counts > n].index
+
+    return multiple_outliers

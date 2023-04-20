@@ -1,8 +1,11 @@
+from typing import Union
+import numpy as np
+from typing import Optional
+import matplotlib.pyplot as plt
 import pandas as pd
 import platform
-from matplotlib import plt
-import numpy as np
-from typing import Union
+import seaborn as sns
+from visualize import plot_missing
 
 if platform.system() == "Darwin":
     plt.switch_platform("TkAgg")
@@ -126,3 +129,56 @@ def feature_summary(df: Union[pd.DataFrame, pd.Series]) -> None:
     summary_df['Skewness'] = df.skew().replace({np.nan: '-'})
 
     return summary_df
+
+
+def display_missing(df: pd.DataFrame, plot: bool = False, exclude_zero: bool = False,
+                    sort_by: str = 'missing_count', ascending: bool = False) -> Optional[pd.DataFrame]:
+    '''
+    Display missing values in a pandas DataFrame as a DataFrame or a heatmap.
+
+    Parameters
+    ----------
+    df : pandas DataFrame
+        The input DataFrame to analyze.
+    plot : bool, default False
+        Whether to display the missing values as a heatmap or not.
+    exclude_zero : bool, default False
+        Whether to exclude features with zero missing values or not.
+    sort_by : str, default 'missing_count'
+        Whether to sort the features by missing counts or missing percentages.
+    ascending : bool, default False
+        Whether to sort the features in ascending or descending order.
+
+    Returns
+    -------
+    pandas DataFrame or None
+        If plot=False, returns a DataFrame with the missing counts and percentages for each feature.
+        If plot=True, returns None and displays a heatmap of the missing values.
+
+    '''
+    if not isinstance(df, pd.DataFrame):
+        raise TypeError("data must be a pandas DataFrame")
+
+    if df.empty:
+        return None
+
+    df = df.isna().sum().to_frame(name='missing_count')
+    df['missing_percent'] = df['missing_count'] / len(df) * 100
+
+    if exclude_zero:
+        df = df[df['missing_count'] > 0]
+
+    if sort_by == 'missing_percent':
+        df = df.sort_values(by='missing_percent', ascending=ascending)
+    else:
+        df = df.sort_values(by='missing_count', ascending=ascending)
+
+    if plot:
+        plt.figure(figsize=(12, 6))
+        plt.title('Missing Values Heatmap')
+        plt.xticks(rotation=90)
+        plt.yticks(rotation=0)
+        sns.heatmap(df.isna(), cmap='Reds', cbar=False)
+        plt.show()
+    else:
+        return df
