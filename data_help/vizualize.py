@@ -1,7 +1,12 @@
 import pandas as pd
-import seaborn as sns
 from typing import Union
 import matplotlib.pyplot as plt
+import platform
+
+if platform.system() == "Darwin":
+    plt.switch_platform("TkAgg")
+else:
+    plt.switch_platform("Agg")
 
 
 def plot_missing(df: Union[pd.DataFrame, pd.Series]) -> None:

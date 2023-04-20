@@ -97,7 +97,7 @@ def get_num_counts(df: Union[pd.DataFrame, pd.Series]) -> None:
     return pd.DataFrame({'Feature': list(counts.keys()), 'Unique Count': list(counts.values())})
 
 
-def feature_summary(df: Union[pd.DataFrame, pd.Series]) -> None:
+def feature_summary(df: Union[pd.DataFrame, pd.Series], visualize: bool = False) -> None:
     """
     Provides a summary of the features in a pandas DataFrame.
 
@@ -105,6 +105,8 @@ def feature_summary(df: Union[pd.DataFrame, pd.Series]) -> None:
     ----------
     df : pandas DataFrame
         The input DataFrame to summarize.
+    visualize : bool, optional
+        Whether to generate visualizations or not, by default False.
 
     Returns
     -------
@@ -119,14 +121,35 @@ def feature_summary(df: Union[pd.DataFrame, pd.Series]) -> None:
         'Null', 'Unique_Count', 'Data_type',
         'Max', 'Min', 'Mean', 'Std', 'Skewness'])
 
-    summary_df['Null'] = df.isnull().sum()
-    summary_df['Unique_Count'] = df.nunique()
-    summary_df['Data_type'] = df.dtypes
-    summary_df['Max'] = df.max().replace({np.nan: '-'})
-    summary_df['Min'] = df.min().replace({np.nan: '-'})
-    summary_df['Mean'] = df.mean().replace({np.nan: '-'})
-    summary_df['Std'] = df.std().replace({np.nan: '-'})
-    summary_df['Skewness'] = df.skew().replace({np.nan: '-'})
+    for col in df.columns:
+        if df[col].dtype.name == 'category':
+            summary_df.at[col, 'Unique_Count'] = df[col].value_counts().count()
+            summary_df.at[col, 'Data_type'] = 'categorical'
+        else:
+            summary_df.at[col, 'Unique_Count'] = df[col].nunique()
+            summary_df.at[col, 'Data_type'] = df[col].dtype.name
+            summary_df.at[col, 'Max'] = df[col].max().astype(str)
+            summary_df.at[col, 'Min'] = df[col].min().astype(str)
+            summary_df.at[col, 'Mean'] = df[col].mean()
+            summary_df.at[col, 'Std'] = df[col].std()
+            summary_df.at[col, 'Skewness'] = df[col].skew()
+
+            if visualize and df[col].dtype.name in ['int64', 'float64']:
+                fig, ax = plt.subplots(1, 2, figsize=(10, 5))
+                ax[0].hist(df[col])
+                ax[0].set_xlabel(col)
+                ax[0].set_ylabel('Frequency')
+                ax[1].boxplot(df[col], vert=False)
+                ax[1].set_xlabel(col)
+                plt.show()
+            elif visualize and df[col].dtype.name == 'category':
+                fig, ax = plt.subplots(1, 1, figsize=(10, 5))
+                df[col].value_counts().plot(kind='bar', ax=ax)
+                ax.set_xlabel(col)
+                ax.set_ylabel('Frequency')
+                plt.show()
+
+        summary_df.at[col, 'Null'] = df[col].isnull().sum()
 
     return summary_df
 
