@@ -2,16 +2,17 @@ import os
 import argparse
 import joblib
 import logging
-import pandas as pd
 import json
 import pickle
 import tensorflow as tf
 from pathlib import Path
 from utils import _get_path
 from typing import Optional
+from logger import create_rotating_log
 
 __author__ = "Meshack Kitonga"
 __email__ = "dev.kitonga@gmail.com"
+
 
 def create_directory(path: Optional[Path]):
     """Create a directory if it does not exist already"""
@@ -38,9 +39,9 @@ def create_project(project_name: Optional[str]):
     if not project_name:
         raise ValueError("Project name cannot be empty or None.")
 
-    # simple logger -> imporve this with rotating logging
     log_filename = f"{project_name}.log"
-    logging.basicConfig(filename=log_filename, level=logging.DEBUG)
+    create_rotating_log(log_filename)
+
     logging.info("Creating project...")
 
     # project directory structure
