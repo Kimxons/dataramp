@@ -20,8 +20,17 @@ def _get_path(dir=None):
     homedir = _get_home_path(os.getcwd())
     config_path = os.path.join(homedir, "config.txt")
 
+    if not os.path.isfile(config_path):
+        raise FileNotFoundError(f"No config file found at {config_path}")
+
     with open(config_path) as configfile:
-        config = json.load(configfile)
+        try:
+            config = json.load(configfile)
+        except json.JSONDecodeError as e:
+            raise ValueError(f"Error loading config file {config_path}: {e}")
+
+    if dir not in config:
+        raise KeyError(f"No key {dir} in config file {config_path}")
 
     path = config[dir]
     return path
