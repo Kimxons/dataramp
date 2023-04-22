@@ -10,7 +10,8 @@ from pathlib import Path
 from utils import _get_path
 from typing import Optional
 
-#import pytorch 
+__author__ = "Meshack Kitonga"
+__email__ = "dev.kitonga@gmail.com"
 
 def create_directory(path: Optional[Path]):
     """Create a directory if it does not exist already"""
@@ -37,7 +38,7 @@ def create_project(project_name: Optional[str]):
     if not project_name:
         raise ValueError("Project name cannot be empty or None.")
 
-    # logging
+    # simple logger -> imporve this with rotating logging
     log_filename = f"{project_name}.log"
     logging.basicConfig(filename=log_filename, level=logging.DEBUG)
     logging.info("Creating project...")

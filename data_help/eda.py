@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from typing import Union
 import numpy as np
 from typing import Optional
@@ -5,7 +7,6 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import platform
 import seaborn as sns
-from visualize import plot_missing
 
 if platform.system() == "Darwin":
     plt.switch_platform("TkAgg")
