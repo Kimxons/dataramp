@@ -115,6 +115,9 @@ def feature_summary(df: Union[pd.DataFrame, pd.Series], visualize: bool = False)
         The summary DataFrame with columns for the number of null values, unique value counts, data types,
         maximum and minimum values, mean, standard deviation, and skewness.
     """
+    if df is None:
+        raise ValueError("Exepected a pandas dataframe, but got None")
+
     if not isinstance(df, pd.DataFrame):
         raise TypeError("df must be a pandas DataFrame")
 
@@ -180,11 +183,11 @@ def display_missing(df: pd.DataFrame, plot: bool = False, exclude_zero: bool = F
         If plot=True, returns None and displays a heatmap of the missing values.
 
     '''
+    if df is None:
+        raise ValueError("Expected a pandas dataframe, but got None")
+
     if not isinstance(df, pd.DataFrame):
         raise TypeError("data must be a pandas DataFrame")
-
-    if df.empty:
-        return None
 
     df = df.isna().sum().to_frame(name='missing_count')
     df['missing_percent'] = df['missing_count'] / len(df) * 100
