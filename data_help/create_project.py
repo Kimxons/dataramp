@@ -131,8 +131,7 @@ def model_save(model, name="model", method="joblib"):
 
         logging.info(f"Model saved successfully to {filename}")
     except FileNotFoundError:
-        msg = "models folder does not exist. Saving model to the {} folder. It is recommended that you start your project using datasist's start_project function".format(
-            name)
+        msg = "models folder does not exist. Saving model to the {} folder. It is recommended that you start your project using data_help's start_project function".format(name)
         logging.info(msg)
 
         filename = f"{name}.{method}"
