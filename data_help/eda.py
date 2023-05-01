@@ -13,7 +13,6 @@ if platform.system() == "Darwin":
 else:
     plt.switch_system("Agg")
 
-
 def get_num_vars(df: Union[pd.DataFrame, pd.Series]) -> None:
     """
     Returns the list of numerical features in a DataFrame or Series object.
@@ -209,3 +208,4 @@ def display_missing(df: pd.DataFrame, plot: bool = False, exclude_zero: bool = F
         plt.show()
     else:
         return df
+
