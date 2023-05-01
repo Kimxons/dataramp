@@ -7,6 +7,7 @@ import matplotlib.pyplot as plt
 from typing import Union
 import pandas as pd
 import numpy as np
+import seaborn as sns
 import platform
 
 if platform.system() == "Darwin":
@@ -80,3 +81,39 @@ def train_classifier(
             plt.xlabel('False Positive Rate')
             plt.ylabel('True Positive Rate')
             plt.title('Receiver Operating Characteristic Curve')
+
+def feature_importance(estimator=None, col_name=None):
+    '''
+    Plots the feature importance from a trained scikit learn estimator
+    as a bar chart.
+
+    Parameters:
+    -----------
+    estimator : scikit-learn estimator
+        A fitted estimator that has a `feature_importances_` attribute.
+    col_names : list of str
+        The names of the columns in the same order as the feature importances.
+
+    Returns:
+    --------
+    fig : matplotlib Figure
+        The figure object containing the plot.
+    ax : matplotlib Axes
+        The axes object containing the plot.
+    '''
+
+    if not hasattr(estimator, 'feature_importances_'):
+        raise ValueError("The estimator does not have a 'feature_importances_' attribute.")
+
+    if not isinstance(col_names, list) or len(col_names) != len(estimator.feature_importances_):
+        raise ValueError("The 'col_names' argument should be a list of the same length as the feature importances.")
+
+    feats_imp = pd.DataFrame({"features": col_names, "importance": estimator.feature_importances_})
+    feats_imp = feats_imp.sort_values(by='importance', ascending=False)
+
+    fig, ax = plt.subplots()
+    sns.barplot(x='features', y='importance', data=feats_imp, ax=ax)
+    ax.set_xticklabels(ax.get_xticklabels(), rotation=90)
+    ax.set_title("Feature importance plot")
+
+    return fig, ax
