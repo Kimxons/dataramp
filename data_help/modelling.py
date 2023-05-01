@@ -7,7 +7,12 @@ import matplotlib.pyplot as plt
 from typing import Union
 import pandas as pd
 import numpy as np
+import platform
 
+if platform.system() == "Darwin":
+    plt.switch_backend()
+else:
+    plt.switch_backend("Agg")
 
 def train_classifier(
         X_train: Union[pd.DataFrame, np.ndarray],
