@@ -61,6 +61,12 @@ def min_max_scaling(X: np.ndarray) -> np.ndarray:
     X_scaled : numpy ndarray, shape (n_samples, n_features)
         The scaled data.
     """
+    if X is None:
+        raise ValueError("Expected a numpy array, but got None")
+
+    if not is instance(X, np.ndarray):
+        raise TypeError(f"Expected a numpy array, but got {type(X)}")
+
     X_min = np.min(X, axis=0)
     X_max = np.max(X, axis=0)
     X_scaled = (X - X_min) / (X_max - X_min)
