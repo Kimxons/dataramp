@@ -1,14 +1,15 @@
-import os
 import argparse
-import joblib
-import logging
 import json
+import logging
+import os
 import pickle
-import tensorflow as tf
 from pathlib import Path
-from utils import _get_path
 from typing import Optional
+
+import joblib
+import tensorflow as tf
 from logger import create_rotating_log
+from utils import _get_path
 
 __author__ = "Meshack Kitonga"
 __email__ = "dev.kitonga@gmail.com"
@@ -29,10 +30,13 @@ def create_project(project_name: Optional[str]):
     Returns:
         None
     """
-    parser = argparse.ArgumentParser(
-        description="Create a new data science project.")
-    parser.add_argument("project_name", nargs="?",
-                        default="project_name", help="Name of the project directory")
+    parser = argparse.ArgumentParser(description="Create a new data science project.")
+    parser.add_argument(
+        "project_name",
+        nargs="?",
+        default="project_name",
+        help="Name of the project directory",
+    )
     args = parser.parse_args()
     create_project(args.project_name)
 
@@ -73,7 +77,7 @@ def create_project(project_name: Optional[str]):
         preparation_path,
         modeling_path,
         test_path,
-        notebooks_path
+        notebooks_path,
     ]
 
     for dir in dirs:
@@ -94,8 +98,7 @@ def create_project(project_name: Optional[str]):
         json.dump(config, configfile, indent=4)
 
     with open(base_path / "README.txt", "w") as readme:
-        readme.write(
-            "Creates a standard data science project directory structure.")
+        readme.write("Creates a standard data science project directory structure.")
 
     logging.info(f"Project created successuflly in {base_path}")
 
@@ -114,11 +117,14 @@ def model_save(model, name="model", method="joblib"):
             Format to use in saving the model. It can be one of ['joblib', 'pickle', 'keras'].
     Returns:
         None
-        """
+    """
     if model is None:
         raise ValueError("Expecting a binary model file, got 'None'")
-    SUPPORTED_METHODS = {"joblib": joblib.dump, "pickle": pickle.dump,
-                         "keras": tf.keras.models.save_model}
+    SUPPORTED_METHODS = {
+        "joblib": joblib.dump,
+        "pickle": pickle.dump,
+        "keras": tf.keras.models.save_model,
+    }
 
     if method not in SUPPORTED_METHODS:
         raise ValueError(f"Method {method} not supported. Supported methods are: {list(SUPPORTED_METHODS.keys())}")
@@ -131,7 +137,9 @@ def model_save(model, name="model", method="joblib"):
 
         logging.info(f"Model saved successfully to {filename}")
     except FileNotFoundError:
-        msg = "models folder does not exist. Saving model to the {} folder. It is recommended that you start your project using data_help's start_project function".format(name)
+        msg = "models folder does not exist. Saving model to the {} folder. It is recommended that you start your project using data_help's start_project function".format(
+            name
+        )
         logging.info(msg)
 
         filename = f"{name}.{method}"

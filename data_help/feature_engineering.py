@@ -1,9 +1,9 @@
-from typing import List, Union
-import pandas as pd
-import numpy as np
-from typing import Union
-import matplotlib.pyplot as plt
 import platform
+from typing import List, Union
+
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
 
 # check for macOs - plt might misbehave
 if platform.system() == "Darwin":
@@ -15,7 +15,7 @@ else:
 
 
 def drop_missing(data: Union[pd.DataFrame, pd.Series], threshold=95) -> None:
-    '''
+    """
     Drops missing columns with threshold of missing data.
 
     Parameters:
@@ -26,13 +26,12 @@ def drop_missing(data: Union[pd.DataFrame, pd.Series], threshold=95) -> None:
     Returns:
         Pandas DataFrame or Series
             The modified DataFrame or Series after dropping the missing columns.
-    '''
+    """
     if data is None:
         data = pd.DataFrame()
 
     if not isinstance(data, (pd.DataFrame, pd.Series)):
-        raise TypeError(
-            f"data must be a pandas DataFrame or Series, but got {type(data)}")
+        raise TypeError(f"data must be a pandas DataFrame or Series, but got {type(data)}")
 
     missing_data = data.isna().mean() * 100
     cols_to_drop = missing_data[missing_data >= threshold].index
@@ -40,8 +39,7 @@ def drop_missing(data: Union[pd.DataFrame, pd.Series], threshold=95) -> None:
     if not cols_to_drop.empty:
         n_cols_dropped = len(cols_to_drop)
         n_cols_orig = data.shape[1]
-        print(
-            f"Dropped {n_cols_dropped}/{n_cols_orig} ({n_cols_dropped/n_cols_orig:.1%}) columns.")
+        print(f"Dropped {n_cols_dropped}/{n_cols_orig} ({n_cols_dropped/n_cols_orig:.1%}) columns.")
         data = data.drop(columns=cols_to_drop, axis=1, inplace=True)
 
     return data
@@ -64,7 +62,7 @@ def min_max_scaling(X: np.ndarray) -> np.ndarray:
     if X is None:
         raise ValueError("Expected a numpy array, but got None")
 
-    if not is instance(X, np.ndarray):
+    if not isinstance(X, np.ndarray):
         raise TypeError(f"Expected a numpy array, but got {type(X)}")
 
     X_min = np.min(X, axis=0)
@@ -116,7 +114,7 @@ def log_transform(X: np.ndarray) -> np.ndarray:
 
 
 def detect_outliers(data: Union[pd.DataFrame, pd.Series], features, n=2):
-    '''
+    """
     Detects rows with outliers using Tukey's Interquartile Range (IQR) method.
 
     Parameters
@@ -132,18 +130,16 @@ def detect_outliers(data: Union[pd.DataFrame, pd.Series], features, n=2):
     -------
     pandas.Index
         The indices of rows containing outliers.
-    '''
+    """
     if data is None:
         raise ValueError("Expected a pandas dataframe or series, but got None")
 
     if not isinstance(data, (pd.DataFrame, pd.Series)):
-        raise TypeError(
-            f"data must be a pandas DataFrame or Series, but got {type(data)}")
+        raise TypeError(f"data must be a pandas DataFrame or Series, but got {type(data)}")
 
     if features is not None:
         if not isinstance(features, list):
-            raise TypeError(
-                f"features must be a list, but got {type(features)}")
+            raise TypeError(f"features must be a list, but got {type(features)}")
         for feature in features:
             if feature not in data.columns:
                 raise ValueError(f"Column '{feature}' not found in data")
@@ -156,8 +152,7 @@ def detect_outliers(data: Union[pd.DataFrame, pd.Series], features, n=2):
         Q1, Q3 = np.nanpercentile(data[col], [25, 75])
         IQR = Q3 - Q1
 
-        outlier_list_col = data[(data[col] < Q1 - 1.5 * IQR)
-                                | (data[col] > Q3 + 1.5 * IQR)].index
+        outlier_list_col = data[(data[col] < Q1 - 1.5 * IQR) | (data[col] > Q3 + 1.5 * IQR)].index
 
         outlier_indices.extend(outlier_list_col)
 

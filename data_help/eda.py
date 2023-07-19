@@ -1,17 +1,18 @@
 from __future__ import annotations
 
-from typing import Union
-import numpy as np
-from typing import Optional
-import matplotlib.pyplot as plt
-import pandas as pd
 import platform
+from typing import Optional, Union
+
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
 import seaborn as sns
 
 if platform.system() == "Darwin":
     plt.switch_platform("TkAgg")
 else:
     plt.switch_system("Agg")
+
 
 def get_num_vars(df: Union[pd.DataFrame, pd.Series]) -> None:
     """
@@ -52,13 +53,13 @@ def get_cat_vars(df: Union[pd.DataFrame, pd.Series]) -> None:
     if not isinstance(df, (pd.DataFrame, pd.Series)):
         raise TypeError("df must be a pandas DataFrame or Series")
 
-    cat_vars = df.select_dtypes(include='object').columns.tolist()
+    cat_vars = df.select_dtypes(include="object").columns.tolist()
 
     return cat_vars
 
 
 def get_cat_counts(df: Union[pd.DataFrame, pd.Series]) -> None:
-    '''
+    """
     Gets the unique count of categorical features.
 
     Parameters:
@@ -67,18 +68,18 @@ def get_cat_counts(df: Union[pd.DataFrame, pd.Series]) -> None:
     Returns:
         pandas DataFrame
             Unique value counts of the categorical features in the dataframe.
-    '''
+    """
 
     if not isinstance(df, (pd.DataFrame, pd.Series)):
         raise TypeError("df must be a pandas DataFrame or Series")
 
     cat_vars = get_num_vars(df)
     counts = {var: df[var].value_counts().shape[0] for var in cat_vars}
-    return pd.DataFrame({'Feature': list(counts.keys()), 'Unique Count': list(counts.values())})
+    return pd.DataFrame({"Feature": list(counts.keys()), "Unique Count": list(counts.values())})
 
 
 def get_num_counts(df: Union[pd.DataFrame, pd.Series]) -> None:
-    '''
+    """
     Gets the unique count of categorical features.
 
     Parameters:
@@ -87,14 +88,14 @@ def get_num_counts(df: Union[pd.DataFrame, pd.Series]) -> None:
     Returns:
         pandas DataFrame
             Unique value counts of the categorical features in the dataframe.
-    '''
+    """
 
     if not isinstance(df, (pd.DataFrame, pd.Series)):
         raise TypeError("df must be a pandas DataFrame or Series")
 
     cat_vars = get_cat_vars(df)
     counts = {var: df[var].value_counts().shape[0] for var in cat_vars}
-    return pd.DataFrame({'Feature': list(counts.keys()), 'Unique Count': list(counts.values())})
+    return pd.DataFrame({"Feature": list(counts.keys()), "Unique Count": list(counts.values())})
 
 
 def feature_summary(df: Union[pd.DataFrame, pd.Series], visualize: bool = False) -> None:
@@ -120,46 +121,61 @@ def feature_summary(df: Union[pd.DataFrame, pd.Series], visualize: bool = False)
     if not isinstance(df, pd.DataFrame):
         raise TypeError("df must be a pandas DataFrame")
 
-    summary_df = pd.DataFrame(index=df.columns, columns=[
-        'Null', 'Unique_Count', 'Data_type',
-        'Max', 'Min', 'Mean', 'Std', 'Skewness'])
+    summary_df = pd.DataFrame(
+        index=df.columns,
+        columns=[
+            "Null",
+            "Unique_Count",
+            "Data_type",
+            "Max",
+            "Min",
+            "Mean",
+            "Std",
+            "Skewness",
+        ],
+    )
 
     for col in df.columns:
-        if df[col].dtype.name == 'category':
-            summary_df.at[col, 'Unique_Count'] = df[col].value_counts().count()
-            summary_df.at[col, 'Data_type'] = 'categorical'
+        if df[col].dtype.name == "category":
+            summary_df.at[col, "Unique_Count"] = df[col].value_counts().count()
+            summary_df.at[col, "Data_type"] = "categorical"
         else:
-            summary_df.at[col, 'Unique_Count'] = df[col].nunique()
-            summary_df.at[col, 'Data_type'] = df[col].dtype.name
-            summary_df.at[col, 'Max'] = df[col].max().astype(str)
-            summary_df.at[col, 'Min'] = df[col].min().astype(str)
-            summary_df.at[col, 'Mean'] = df[col].mean()
-            summary_df.at[col, 'Std'] = df[col].std()
-            summary_df.at[col, 'Skewness'] = df[col].skew()
+            summary_df.at[col, "Unique_Count"] = df[col].nunique()
+            summary_df.at[col, "Data_type"] = df[col].dtype.name
+            summary_df.at[col, "Max"] = df[col].max().astype(str)
+            summary_df.at[col, "Min"] = df[col].min().astype(str)
+            summary_df.at[col, "Mean"] = df[col].mean()
+            summary_df.at[col, "Std"] = df[col].std()
+            summary_df.at[col, "Skewness"] = df[col].skew()
 
-            if visualize and df[col].dtype.name in ['int64', 'float64']:
+            if visualize and df[col].dtype.name in ["int64", "float64"]:
                 fig, ax = plt.subplots(1, 2, figsize=(10, 5))
                 ax[0].hist(df[col])
                 ax[0].set_xlabel(col)
-                ax[0].set_ylabel('Frequency')
+                ax[0].set_ylabel("Frequency")
                 ax[1].boxplot(df[col], vert=False)
                 ax[1].set_xlabel(col)
                 plt.show()
-            elif visualize and df[col].dtype.name == 'category':
+            elif visualize and df[col].dtype.name == "category":
                 fig, ax = plt.subplots(1, 1, figsize=(10, 5))
-                df[col].value_counts().plot(kind='bar', ax=ax)
+                df[col].value_counts().plot(kind="bar", ax=ax)
                 ax.set_xlabel(col)
-                ax.set_ylabel('Frequency')
+                ax.set_ylabel("Frequency")
                 plt.show()
 
-        summary_df.at[col, 'Null'] = df[col].isnull().sum()
+        summary_df.at[col, "Null"] = df[col].isnull().sum()
 
     return summary_df
 
 
-def display_missing(df: pd.DataFrame, plot: bool = False, exclude_zero: bool = False,
-                    sort_by: str = 'missing_count', ascending: bool = False) -> Optional[pd.DataFrame]:
-    '''
+def display_missing(
+    df: pd.DataFrame,
+    plot: bool = False,
+    exclude_zero: bool = False,
+    sort_by: str = "missing_count",
+    ascending: bool = False,
+) -> Optional[pd.DataFrame]:
+    """
     Display missing values in a pandas DataFrame as a DataFrame or a heatmap.
 
     Parameters
@@ -181,31 +197,30 @@ def display_missing(df: pd.DataFrame, plot: bool = False, exclude_zero: bool = F
         If plot=False, returns a DataFrame with the missing counts and percentages for each feature.
         If plot=True, returns None and displays a heatmap of the missing values.
 
-    '''
+    """
     if df is None:
         raise ValueError("Expected a pandas dataframe, but got None")
 
     if not isinstance(df, pd.DataFrame):
         raise TypeError("data must be a pandas DataFrame")
 
-    df = df.isna().sum().to_frame(name='missing_count')
-    df['missing_percent'] = df['missing_count'] / len(df) * 100
+    df = df.isna().sum().to_frame(name="missing_count")
+    df["missing_percent"] = df["missing_count"] / len(df) * 100
 
     if exclude_zero:
-        df = df[df['missing_count'] > 0]
+        df = df[df["missing_count"] > 0]
 
-    if sort_by == 'missing_percent':
-        df = df.sort_values(by='missing_percent', ascending=ascending)
+    if sort_by == "missing_percent":
+        df = df.sort_values(by="missing_percent", ascending=ascending)
     else:
-        df = df.sort_values(by='missing_count', ascending=ascending)
+        df = df.sort_values(by="missing_count", ascending=ascending)
 
     if plot:
         plt.figure(figsize=(12, 6))
-        plt.title('Missing Values Heatmap')
+        plt.title("Missing Values Heatmap")
         plt.xticks(rotation=90)
         plt.yticks(rotation=0)
-        sns.heatmap(df.isna(), cmap='Reds', cbar=False)
+        sns.heatmap(df.isna(), cmap="Reds", cbar=False)
         plt.show()
     else:
         return df
-

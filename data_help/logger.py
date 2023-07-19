@@ -4,9 +4,9 @@ from logging.handlers import RotatingFileHandler
 
 
 def create_rotating_log(path):
-    '''
+    """
     Creates a rotating log
-    '''
+    """
     logger = logging.getLogger("Rotating Log")
     logger.setLevel(logging.DEBUG)
 

@@ -9,7 +9,7 @@ def _get_home_path(filepath):
     paths = ["src", "src/scripts/ingest", "src/scripts/preparation", "src/scripts/modeling", "src/notebooks"]
     for path in paths:
         if filepath.endswith(path):
-            return filepath[0: filepath.index(path)]
+            return filepath[0 : filepath.index(path)]
     return filepath
 
 
