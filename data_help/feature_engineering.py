@@ -1,5 +1,5 @@
 import platform
-from typing import List, Union
+from typing import Union
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -14,17 +14,17 @@ else:
 # pre-processing data - remove noise andd missing data
 
 
-def drop_missing(data: Union[pd.DataFrame, pd.Series], threshold=95) -> None:
+def drop_missing(data: Union[pd.DataFrame, pd.Series], threshold=95) -> Union[pd.DataFrame, pd.Series]:
     """
-    Drops missing columns with threshold of missing data.
+    Drops missing columns with a threshold of missing data.
 
     Parameters:
-        data: Pandas DataFrame or Series, default None
+        data: pandas DataFrame or Series, default None
             The input DataFrame or Series.
         threshold: float, default 95
             The percentage of missing values to be in a column before it is eligible for removal.
     Returns:
-        Pandas DataFrame or Series
+        pandas DataFrame or Series
             The modified DataFrame or Series after dropping the missing columns.
     """
     if data is None:
@@ -40,7 +40,7 @@ def drop_missing(data: Union[pd.DataFrame, pd.Series], threshold=95) -> None:
         n_cols_dropped = len(cols_to_drop)
         n_cols_orig = data.shape[1]
         print(f"Dropped {n_cols_dropped}/{n_cols_orig} ({n_cols_dropped/n_cols_orig:.1%}) columns.")
-        data = data.drop(columns=cols_to_drop, axis=1, inplace=True)
+        data = data.drop(columns=cols_to_drop, axis=1)
 
     return data
 
