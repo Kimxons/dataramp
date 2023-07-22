@@ -58,27 +58,9 @@ def get_cat_vars(df: Union[pd.DataFrame, pd.Series]) -> None:
     return cat_vars
 
 
+# TODO - Rename one of the get_num_counts or get_cat_counts functions to avoid confusion.
+
 def get_cat_counts(df: Union[pd.DataFrame, pd.Series]) -> None:
-    """
-    Gets the unique count of categorical features.
-
-    Parameters:
-        df: pandas DataFrame
-            The input dataframe containing categorical features.
-    Returns:
-        pandas DataFrame
-            Unique value counts of the categorical features in the dataframe.
-    """
-
-    if not isinstance(df, (pd.DataFrame, pd.Series)):
-        raise TypeError("df must be a pandas DataFrame or Series")
-
-    cat_vars = get_num_vars(df)
-    counts = {var: df[var].value_counts().shape[0] for var in cat_vars}
-    return pd.DataFrame({"Feature": list(counts.keys()), "Unique Count": list(counts.values())})
-
-
-def get_num_counts(df: Union[pd.DataFrame, pd.Series]) -> None:
     """
     Gets the unique count of categorical features.
 
@@ -96,6 +78,36 @@ def get_num_counts(df: Union[pd.DataFrame, pd.Series]) -> None:
     cat_vars = get_cat_vars(df)
     counts = {var: df[var].value_counts().shape[0] for var in cat_vars}
     return pd.DataFrame({"Feature": list(counts.keys()), "Unique Count": list(counts.values())})
+
+
+def plot_feature_importance(importances: np.ndarray, feature_names: list) -> None:
+    """
+    Plots the feature importance as a bar chart.
+
+    Parameters:
+    -----------
+    importances : numpy ndarray
+        The feature importances from a trained model.
+    feature_names : list of str
+        The names of the features in the same order as the importances.
+
+    Returns:
+    --------
+    None
+    """
+    if not isinstance(importances, np.ndarray) or not isinstance(feature_names, list):
+        raise TypeError("importances should be a numpy ndarray and feature_names should be a list.")
+
+    if len(importances) != len(feature_names):
+        raise ValueError("importances and feature_names should have the same length.")
+
+    sorted_indices = importances.argsort()[::-1]
+    plt.bar(range(len(importances)), importances[sorted_indices])
+    plt.xticks(range(len(importances)), np.array(feature_names)[sorted_indices], rotation=90)
+    plt.xlabel("Feature")
+    plt.ylabel("Importance")
+    plt.title("Feature Importances")
+    plt.show()
 
 
 def feature_summary(df: Union[pd.DataFrame, pd.Series], visualize: bool = False) -> None:
@@ -116,7 +128,7 @@ def feature_summary(df: Union[pd.DataFrame, pd.Series], visualize: bool = False)
         maximum and minimum values, mean, standard deviation, and skewness.
     """
     if df is None:
-        raise ValueError("Exepected a pandas dataframe, but got None")
+        raise ValueError("Expected a pandas dataframe, but got None")
 
     if not isinstance(df, pd.DataFrame):
         raise TypeError("df must be a pandas DataFrame")
@@ -136,14 +148,14 @@ def feature_summary(df: Union[pd.DataFrame, pd.Series], visualize: bool = False)
     )
 
     for col in df.columns:
-        if df[col].dtype.name == "category":
+        if df[col].dtype == "category":
             summary_df.at[col, "Unique_Count"] = df[col].value_counts().count()
             summary_df.at[col, "Data_type"] = "categorical"
         else:
             summary_df.at[col, "Unique_Count"] = df[col].nunique()
-            summary_df.at[col, "Data_type"] = df[col].dtype.name
-            summary_df.at[col, "Max"] = df[col].max().astype(str)
-            summary_df.at[col, "Min"] = df[col].min().astype(str)
+            summary_df.at[col, "Data_type"] = str(df[col].dtype)  # Use str(df[col].dtype)
+            summary_df.at[col, "Max"] = df[col].max()  # Remove .astype(str)
+            summary_df.at[col, "Min"] = df[col].min()  # Remove .astype(str)
             summary_df.at[col, "Mean"] = df[col].mean()
             summary_df.at[col, "Std"] = df[col].std()
             summary_df.at[col, "Skewness"] = df[col].skew()
