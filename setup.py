@@ -20,9 +20,9 @@ setup(
     description="A python library for easy modelling",
     long_description=read("README.md"),
     long_description_content_type="text/markdown",
-    author="shaks",
+    author="Meshack Kitonga",
     author_email="dev.kitonga@gmail.com",
-    url="https://github.com",
+    url="https://github.com/data_help",
     packages=find_packages(),
     install_requires=[
         "pandas",
@@ -35,7 +35,7 @@ setup(
         "joblib",
     ],
     classifiers=[
-        "Development Status :: 1 - Planning",
+        "Development Status :: 1 - Development",
         "Intended Audience :: Developers",
         "Programming Language :: Python :: 3.10",
     ],
