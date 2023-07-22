@@ -14,8 +14,8 @@ def read(*names, **kwargs):
 
 
 setup(
-    name="data_help",
-    version="0.1.0",
+    name="data-help",
+    version="0.1.2",
     license="MIT",
     description="A python library for easy modelling",
     long_description=read("README.md"),
@@ -35,8 +35,10 @@ setup(
         "joblib",
     ],
     classifiers=[
-        "Development Status :: 1 - Development",
+        "Development Status :: 2 - Pre-Alpha",
+        "License :: OSI Approved :: MIT License",
         "Intended Audience :: Developers",
-        "Programming Language :: Python :: 3.10",
+        "Programming Language :: Python :: 3",
     ],
+    python_requires=">=3.6",
 )
