@@ -9,9 +9,9 @@ import pandas as pd
 import seaborn as sns
 
 if platform.system() == "Darwin":
-    plt.switch_platform("TkAgg")
+    plt.switch_backend("TkAgg")
 else:
-    plt.switch_system("Agg")
+    plt.switch_backend("Agg")
 
 
 def get_num_vars(df: Union[pd.DataFrame, pd.Series]) -> None:
