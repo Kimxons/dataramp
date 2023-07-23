@@ -1,0 +1,46 @@
+[build-system]
+requires = ["poetry>=1.1.0"]
+build-backend = "poetry.masonry.api"
+
+[tool.poetry]
+name = "datahelp"
+version = "0.1.0"
+description = "Data science library for data science / data analysis teams based on Azure"
+authors = ["Meshack Kitonga <dev.kitonga@gmail.com>"]
+license = "MIT"
+homepage = "https://github.com/kimxons/datahelp"
+repository = "https://github.com/kimxons/datahelp.git"
+readme = "README.md"
+keywords = ["data", "science", "data analysis", "library", "machine learning"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.6",
+    "Programming Language :: Python :: 3.7",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+]
+
+[tool.poetry.dependencies]
+python = ">=3.6"
+pandas = "^1.3.3"
+scikit-learn = "^0.24.2"
+seaborn = "^0.11.2"
+numpy = "^1.21.2"
+jupyter = "^1.0.0"
+matplotlib = "^3.4.3"
+nltk = "^3.6.4"
+joblib = "^1.0.1"
+
+[tool.poetry.dev-dependencies]
+
+[tool.poetry.scripts]
+
+[tool.poetry.extras]
+
+[build-system]
+requires = ["poetry-core>=1.1.0"]
+build-backend = "poetry.core.masonry.api"
