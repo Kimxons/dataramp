@@ -29,9 +29,9 @@ pip install datahelp
 Once installed, you can import the library and explore its functionality:
 
 ```python
-import datahelp as dh
+import datahelp as dh # import the datahelp library
 
-df = pd.read_csv("data/iris.csv")
+df = pd.read_csv("data/iris.csv") # load iris dataset
 
 df.head()
 
