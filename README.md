@@ -31,19 +31,21 @@ Once installed, you can import the library and explore its functionality:
 ```python
 import data_help as dh
 
-# Create a new data science project structure
-dh.create_project("my_project")
+df = pd.read_csv("data/iris.csv")
 
-# Load and preprocess data
-df = dh.load_dataset("data/iris.csv")
-X, y = dh.split_dataset(df)
+df.head()
 
-# Train a machine learning model and get accuracy
-trained_model, accuracy = dh.train_model(X, y)
-print(f"Model Accuracy: {accuracy:.2f}")
+cats = dh.eda.get_cat_vars(df)
+print(cats)
 
-# Plot feature importances
-dh.plot_feature_importance(trained_model.feature_importances_, X.columns)
+num_var = dh.eda.get_num_vars(df)
+print(num_var)
+
+cat_count = dh.eda.get_cat_counts(df)
+cat_count
+
+missing = dh.eda.display_missing(df)
+missing
 ```
 
 ## Documentation
