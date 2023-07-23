@@ -15,7 +15,7 @@ def read(*names, **kwargs):
 
 setup(
     name="data-help",
-    version="0.1.2",
+    version="0.1.3",
     license="MIT",
     description="A python library for easy modelling",
     long_description=read("README.md"),
