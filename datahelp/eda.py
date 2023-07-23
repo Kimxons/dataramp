@@ -244,28 +244,28 @@ def get_unique_counts(data=None):
 
     Parameters
     -----------
-        data: DataFrame or named Series
+    data: DataFrame or named Series
+        The dataset for which to calculate unique value counts.
 
     Returns
     -------
-        DataFrame or Series
-
-            Unique value counts of the features in a dataset.
+    DataFrame
+        Unique value counts of the features in the dataset.
     '''
-
     if data is None:
         raise ValueError("data: Expecting a DataFrame or Series, got 'None'")
 
-    features = get_cat_vars(data)
-    temp_len = []
+    if not isinstance(data, (pd.DataFrame, pd.Series)):
+        raise TypeError("data: Expecting a DataFrame or Series, got '{}'".format(type(data)))
 
-    for feature in features:
-        temp_len.append(len(data[feature].unique()))
+    if isinstance(data, pd.Series):
+        data = data.to_frame()
 
-    df = list(zip(features, temp_len))
-    df = pd.DataFrame(df, columns=['Feature', 'Unique Count'])
-    df = df.style.bar(subset=['Unique Count'], align='mid')
-    return df
+    features = data.select_dtypes(include='object').columns.tolist()
+    unique_counts = data[features].nunique().reset_index()
+    unique_counts.columns = ['Feature', 'Unique Count']
+
+    return unique_counts
 
 
 def join_train_and_test(data_train=None, data_test=None):
@@ -273,20 +273,29 @@ def join_train_and_test(data_train=None, data_test=None):
     Joins two data sets and returns a dictionary containing their sizes and the concatenated data.
     Used mostly before feature engineering to combine train and test set together.
 
-    Parameter:
+    Parameters:
     ----------
-        data_train: DataFrame, named series.
+    data_train: DataFrame
+        First dataset, usually called "train_data", to join.
 
-            First data usually called train date to join.
-
-        data_test: DataFrame, named series.
-
-            Second data set to join, usually called test.
+    data_test: DataFrame
+        Second dataset, usually called "test_data", to join.
 
     Returns:
     -------
-        Tuple: Merged data, size of train and size of test
+    DataFrame
+        Merged data containing both train and test sets.
+    int
+        Number of rows in the train set.
+    int
+        Number of rows in the test set.
     '''
+
+    if data_train is None or data_test is None:
+        raise ValueError("Both 'data_train' and 'data_test' must be provided.")
+
+    if not isinstance(data_train, pd.DataFrame) or not isinstance(data_test, pd.DataFrame):
+        raise TypeError("Both 'data_train' and 'data_test' should be DataFrames.")
 
     n_train = data_train.shape[0]
     n_test = data_test.shape[0]
@@ -297,29 +306,23 @@ def join_train_and_test(data_train=None, data_test=None):
 
 def check_train_test_set(train_data, test_data, index=None, col=None):
     '''
-    Checks the distribution of train and test for uniqueness in order to determine
+    Checks the distribution of train and test for uniqueness to determine
     the best feature engineering strategy.
 
     Parameters:
     -------------------
-        train_data: DataFrame
+    train_data: DataFrame
+        The train dataset.
 
-            The first data set to join
+    test_data: DataFrame
+        The test dataset.
 
-        test_data: DataFrame
+    index: str, Default None
+        An index column present in both datasets to be used in plotting.
 
-             The second dataset to join
-
-        index: Str, Default None
-
-            An index column present in both dataset to be used in plotting
-
-        col: Str, Default None
-
-            A feature present in both dataset used in plotting
+    col: str, Default None
+        A feature present in both datasets used in plotting.
     '''
-    print('There are {} training rows and {} test rows.'.format(train_data.shape[0], test_data.shape[0]))
-    print('There are {} training columns and {} test columns.'.format(train_data.shape[1], test_data.shape[1]))
 
     if index:
         if train_data[index].nunique() == train_data.shape[0]:
@@ -327,19 +330,15 @@ def check_train_test_set(train_data, test_data, index=None, col=None):
         else:
             print('Id field is not unique')
 
-        if len(np.intersect1d(train_data[index].values, test_data[index].values))== 0:
+        if len(np.intersect1d(train_data[index].values, test_data[index].values)) == 0:
             print('Train and test sets have distinct Ids.') 
         else:
             print('Train and test sets IDs are the same.')
-            _space()
 
+        print('\n')
         plt.plot(train_data.groupby(col).count()[[index]], 'o-', label='train')
         plt.plot(test_data.groupby(col).count()[[index]], 'o-', label='test')
         plt.title('Train and test instances overlap.')
         plt.legend(loc=0)
-        plt.ylabel('number of records')
+        plt.ylabel('Number of records')
         plt.show()
-
-
-def _space():
-    print('\n')
