@@ -3,8 +3,10 @@ nltk==3.8.1
 packaging==23.0
 pandas==1.5.2
 pytest==7.3.1
+poetry==1.5.1
 seaborn
 numpy
 matplotlib
 jupyter
 importlib-metadata
+scikit-learn-0.24.2

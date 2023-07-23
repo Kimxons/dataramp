@@ -1,11 +1,11 @@
 [build-system]
-requires = ["poetry>=1.1.0"]
-build-backend = "poetry.masonry.api"
+requires = ["poetry-core>=1.1.0"]
+build-backend = "poetry.core.masonry.api"
 
 [tool.poetry]
 name = "datahelp"
 version = "0.1.0"
-description = "Data science library for data science / data analysis teams based on Azure"
+description = "Data science library for data science / data analysis teams"
 authors = ["Meshack Kitonga <dev.kitonga@gmail.com>"]
 license = "MIT"
 homepage = "https://github.com/kimxons/datahelp"
@@ -40,7 +40,3 @@ joblib = "^1.0.1"
 [tool.poetry.scripts]
 
 [tool.poetry.extras]
-
-[build-system]
-requires = ["poetry-core>=1.1.0"]
-build-backend = "poetry.core.masonry.api"

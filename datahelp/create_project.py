@@ -106,8 +106,8 @@ def create_project(project_name: Optional[str]):
 def model_save(model, name="model", method="joblib"):
     """
     Save a trained machine learning model in the models folder.
-    Folders must be initialized using the data_help start_project function.
-    Creates a folder models if data_help standard directory is not provided.
+    Folders must be initialized using the datahelp start_project function.
+    Creates a folder models if datahelp standard directory is not provided.
     Parameters:
         model: binary file, Python object
             Trained model file to save in the models folder.
@@ -137,7 +137,7 @@ def model_save(model, name="model", method="joblib"):
 
         logging.info(f"Model saved successfully to {filename}")
     except FileNotFoundError:
-        msg = "models folder does not exist. Saving model to the {} folder. It is recommended that you start your project using data_help's start_project function".format(
+        msg = "models folder does not exist. Saving model to the {} folder. It is recommended that you start your project using datahelp's start_project function".format(
             name
         )
         logging.info(msg)
