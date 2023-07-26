@@ -1,0 +1,12 @@
+__pycache__
+.venv/
+.vscode
+notebooks
+.*.swp
+.*.swo
+*.pyc
+*.so
+build
+dist
+*.egg-info
+/env
