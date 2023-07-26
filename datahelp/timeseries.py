@@ -42,8 +42,8 @@ def extract_date_info(data=None, date_cols=None, subset=None, drop=True):
 
 def extract_time_info(data=None, time_cols=None, subset=None, drop=True):
     """
-    Returns time information in a pandas DataFrame as a new set of columns 
-    added to the original data frame. For extracting DateTime features, 
+    Returns time information in a pandas DataFrame as a new set of columns
+    added to the original data frame. For extracting DateTime features,
     use extract_date_info function.
 
     Parameters:
@@ -70,7 +70,7 @@ def extract_time_info(data=None, time_cols=None, subset=None, drop=True):
 
 def get_time_elapsed(data=None, date_cols=None, by='s', col_name=None):
     """
-    Calculates the time elapsed between two specified date columns 
+    Calculates the time elapsed between two specified date columns
     and returns the value in either seconds (s), minutes (m), or hours (h).
 
     Parameters:
@@ -100,7 +100,7 @@ def get_period_of_day(date_col=None):
     """
     Returns a list of the time of the day as regards to mornings, afternoons, or evenings.
     Hour of the day that falls between [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12] are mapped to mornings,
-    [13, 14, 15, 16] are mapped to afternoons, and [17, 18, 19, 20, 21, 22, 23] are mapped to evenings. 
+    [13, 14, 15, 16] are mapped to afternoons, and [17, 18, 19, 20, 21, 22, 23] are mapped to evenings.
 
     Parameters:
     ------------
@@ -111,7 +111,7 @@ def get_period_of_day(date_col=None):
     ----------
     Series of mapped values.
     """
-    def _map_hours(x):   
+    def _map_hours(x):
         if x in [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]:
             return 'morning'
         elif x in [13, 14, 15, 16]:

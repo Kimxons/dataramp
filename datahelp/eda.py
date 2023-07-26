@@ -331,7 +331,7 @@ def check_train_test_set(train_data, test_data, index=None, col=None):
             print('Id field is not unique')
 
         if len(np.intersect1d(train_data[index].values, test_data[index].values)) == 0:
-            print('Train and test sets have distinct Ids.') 
+            print('Train and test sets have distinct Ids.')
         else:
             print('Train and test sets IDs are the same.')
 
