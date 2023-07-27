@@ -18,7 +18,7 @@ datahelp offers the following key features:
 
 6. **Scaling and Normalization:** The library offers functions for min-max scaling and z-score normalization of data to bring features to a common scale.
 
-## Getting Started
+## Quickstart
 
 To use datahelp in your data science projects, you can install it via pip:
 
@@ -47,6 +47,9 @@ cat_count
 missing = dh.eda.display_missing(df)
 missing
 ```
+## Lins
+Project: https://github.com/kimxons/datahelp
+PyPi: https://pypi.python.org/pypi/dataehlp/
 
 ## Documentation
 
