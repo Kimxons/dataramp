@@ -46,17 +46,17 @@ print(f"Model Accuracy: {accuracy:.2f}")
 
 
 # 4. Visualize Feature Importance
-def plot_feature_importance(importances, feature_names):
-    sorted_indices = importances.argsort()[::-1]
-    plt.bar(range(len(importances)), importances[sorted_indices])
-    plt.xticks(range(len(importances)), feature_names[sorted_indices], rotation=90)
+def plot_feature_importance(vi, feature_names):
+    sorted_indices = vi.argsort()[::-1]
+    plt.bar(range(len(vi)), vi[sorted_indices])
+    plt.xticks(range(len(vi)), feature_names[sorted_indices], rotation=90)
     plt.xlabel("Feature")
     plt.ylabel("Importance")
-    plt.title("Feature Importances")
+    plt.title("Feature vi")
     plt.show()
 
 
-# Get feature importances and plot
-feature_importances = trained_model.feature_importances_
+# Get feature vi and plot
+feature_vi = trained_model.feature_vi_
 feature_names = X.columns
-plot_feature_importance(feature_importances, feature_names)
+plot_feature_importance(feature_vi, feature_names)

@@ -10,7 +10,7 @@ datahelp offers the following key features:
 
 2. **Model Saving and Loading:** datahelp provides easy-to-use functions for saving and loading trained machine learning models. It supports various formats such as joblib, pickle, and keras, enabling seamless integration with different model types.
 
-3. **Data Exploration and Visualization:** The library includes functions for data exploration, summary statistics, and visualization. You can quickly generate feature importances plots and visualize missing data to gain insights into your datasets.
+3. **Data Exploration and Visualization:** The library includes functions for data exploration, summary statistics, and visualization. You can quickly generate feature vi plots and visualize missing data to gain insights into your datasets.
 
 4. **Feature Engineering:** datahelp includes methods for handling missing data and noise in your datasets. It offers functions for dropping missing columns based on a specified threshold and detecting outliers using Tukey's Interquartile Range (IQR) method.
 

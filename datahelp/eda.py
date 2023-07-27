@@ -80,33 +80,33 @@ def get_cat_counts(df: Union[pd.DataFrame, pd.Series]) -> None:
     return pd.DataFrame({"Feature": list(counts.keys()), "Unique Count": list(counts.values())})
 
 
-def plot_feature_importance(importances: np.ndarray, feature_names: list) -> None:
+def plot_feature_importance(vi: np.ndarray, feature_names: list) -> None:
     """
     Plots the feature importance as a bar chart.
 
     Parameters:
     -----------
-    importances : numpy ndarray
-        The feature importances from a trained model.
+    vi : numpy ndarray
+        The feature vi from a trained model.
     feature_names : list of str
-        The names of the features in the same order as the importances.
+        The names of the features in the same order as the vi.
 
     Returns:
     --------
     None
     """
-    if not isinstance(importances, np.ndarray) or not isinstance(feature_names, list):
-        raise TypeError("importances should be a numpy ndarray and feature_names should be a list.")
+    if not isinstance(vi, np.ndarray) or not isinstance(feature_names, list):
+        raise TypeError("vi should be a numpy ndarray and feature_names should be a list.")
 
-    if len(importances) != len(feature_names):
-        raise ValueError("importances and feature_names should have the same length.")
+    if len(vi) != len(feature_names):
+        raise ValueError("vi and feature_names should have the same length.")
 
-    sorted_indices = importances.argsort()[::-1]
-    plt.bar(range(len(importances)), importances[sorted_indices])
-    plt.xticks(range(len(importances)), np.array(feature_names)[sorted_indices], rotation=90)
+    sorted_indices = vi.argsort()[::-1]
+    plt.bar(range(len(vi)), vi[sorted_indices])
+    plt.xticks(range(len(vi)), np.array(feature_names)[sorted_indices], rotation=90)
     plt.xlabel("Feature")
     plt.ylabel("Importance")
-    plt.title("Feature Importances")
+    plt.title("Feature vi")
     plt.show()
 
 
