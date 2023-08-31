@@ -9,7 +9,7 @@ with open(os.path.join(directory, 'README.md'), encoding='utf-8') as f:
 
 setup(
     name="datahelp",
-    version="0.2.0",
+    version="0.2.1",
     license="MIT",
     description="Data science library for data science / data analysis teams",
     long_description=long_description,

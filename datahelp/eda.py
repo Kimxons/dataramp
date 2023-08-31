@@ -342,3 +342,20 @@ def check_train_test_set(train_data, test_data, index=None, col=None):
         plt.legend(loc=0)
         plt.ylabel('Number of records')
         plt.show()
+
+def is_df(obj):
+    r"""Returns True if `obj` is a pandas dataFrame
+    Note that this function is simply doing ```isinstance(obj, df)```
+    Using that ``isinstance`` check is better for typechecking with mypy,
+    and more explicit - so it's recommended to use that instead of
+    ``is_df``.
+
+     Args:
+        obj (Object): Object to test
+    Example::
+
+        >>> x = pd.df()
+        >>> torch.is_df(x)
+        True
+    """
+    return isinstance(obj, df)
