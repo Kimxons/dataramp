@@ -1,6 +1,7 @@
-import pandas as pd
-import numpy as np
 import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+
 from .eda import get_num_vars
 
 

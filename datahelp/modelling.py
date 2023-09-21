@@ -1,12 +1,20 @@
 import platform
-from typing import Union, List, Optional
+from typing import List, Optional, Union
 
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import seaborn as sns  # Added seaborn for feature importance plot
-from sklearn.metrics import (accuracy_score, classification_report, confusion_matrix, f1_score, precision_score,
-                             recall_score, roc_auc_score, roc_curve)
+from sklearn.metrics import (
+    accuracy_score,
+    classification_report,
+    confusion_matrix,
+    f1_score,
+    precision_score,
+    recall_score,
+    roc_auc_score,
+    roc_curve,
+)
 from sklearn.model_selection import cross_val_score
 
 if platform.system() == "Darwin":

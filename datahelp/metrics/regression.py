@@ -6,12 +6,13 @@ Metrics to asses performance of regression models.
 # Copyright (C) 2021
 
 import numpy as np
-
-from sklearn.metrics import explained_variance_score
-from sklearn.metrics import mean_absolute_error
-from sklearn.metrics import mean_squared_error
-from sklearn.metrics import median_absolute_error
-from sklearn.metrics import r2_score
+from sklearn.metrics import (
+    explained_variance_score,
+    mean_absolute_error,
+    mean_squared_error,
+    median_absolute_error,
+    r2_score,
+)
 
 
 def mean_absolute_percentage_error(y_true, y_pred):

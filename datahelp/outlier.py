@@ -5,7 +5,6 @@ Univariate outlier detection methods.
 import numbers
 
 import numpy as np
-
 from sklearn.base import BaseEstimator
 from sklearn.exceptions import NotFittedError
 

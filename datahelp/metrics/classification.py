@@ -6,10 +6,7 @@ Metrics to asses performance of classification models.
 # Copyright (C) 2021
 
 import numpy as np
-
-from sklearn.metrics import auc
-from sklearn.metrics import confusion_matrix
-from sklearn.metrics import roc_curve
+from sklearn.metrics import auc, confusion_matrix, roc_curve
 
 
 def gini(y_true, y_pred_proba):

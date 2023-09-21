@@ -49,7 +49,7 @@ missing
 ```
 ## Lins
 Project: https://github.com/kimxons/datahelp
-PyPi: https://pypi.python.org/pypi/dataehlp/
+PyPi: https://pypi.org/project/datahelp/
 
 ## Documentation
 
@@ -57,7 +57,7 @@ For detailed usage instructions and API reference, please refer to the official 
 
 ## Contribution
 
-datahelp is an open-source project, and we welcome contributions from the data science community. If you find a bug, have a feature request, or want to contribute improvements, please open an issue or submit a pull request on our GitHub repository at [https://github.com/datahelp/datahelp](https://github.com/datahelp/datahelp).
+datahelp is an open-source project, and we welcome contributions from the data science community. If you find a bug, have a feature request, or want to contribute improvements, please open an issue or submit a pull request on our GitHub repository at [https://github.com/kimxons/datahelp](https://github.com/kimxons/datahelp).
 
 ## License
 
