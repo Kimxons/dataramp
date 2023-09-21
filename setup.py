@@ -17,7 +17,7 @@ setup(
     long_description_content_type="text/markdown",
     author="Meshack Kitonga",
     author_email="dev.kitonga@gmail.com",
-    url="https://github.com/datahelp",
+    url="https://github.com/kimxons/datahelp",
     packages=find_packages(),
     install_requires=[
         "pandas",
