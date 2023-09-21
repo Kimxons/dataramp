@@ -4,7 +4,6 @@ import os
 from setuptools import find_packages, setup
 from datahelp.__version__ import __version__
 
-
 directory = os.path.abspath(os.path.dirname(__file__))
 with open(os.path.join(directory, 'README.md'), encoding='utf-8') as f:
     long_description = f.read()
@@ -36,5 +35,5 @@ setup(
         "Intended Audience :: Developers",
         "Programming Language :: Python :: 3",
     ],
-    python_requires=">=3.6",
+    python_requires=">=3.7",
 )
