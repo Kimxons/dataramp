@@ -2,6 +2,8 @@
 
 import os
 from setuptools import find_packages, setup
+from datahelp.__version__ import __version__
+
 
 directory = os.path.abspath(os.path.dirname(__file__))
 with open(os.path.join(directory, 'README.md'), encoding='utf-8') as f:
@@ -9,7 +11,7 @@ with open(os.path.join(directory, 'README.md'), encoding='utf-8') as f:
 
 setup(
     name="datahelp",
-    version="0.2.1",
+    version=__version__,
     license="MIT",
     description="Data science library for data science / data analysis teams",
     long_description=long_description,
