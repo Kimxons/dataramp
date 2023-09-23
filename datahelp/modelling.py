@@ -60,7 +60,9 @@ def train_classifier(
         ]
 
         for metric_name, scorer in scorers:
-            cv_score = cross_val_score(estimator, X_train, y_train, scoring=scorer, cv=cv)
+            cv_score = cross_val_score(
+                estimator, X_train, y_train, scoring=scorer, cv=cv
+            )
             print(f"{metric_name}: {cv_score.mean():.4f} +/- {cv_score.std():.4f}")
     else:
         estimator.fit(X_train, y_train)
@@ -74,7 +76,9 @@ def train_classifier(
             fpr, tpr, _ = roc_curve(y_val, y_pred_proba)
             roc_auc = roc_auc_score(y_val, y_pred_proba)
 
-            plt.plot(fpr, tpr, color="darkorange", label=f"ROC curve (AUC = {roc_auc:.2f})")
+            plt.plot(
+                fpr, tpr, color="darkorange", label=f"ROC curve (AUC = {roc_auc:.2f})"
+            )
             plt.plot([0, 1], [0, 1], color="navy", linestyle="--")
             plt.xlabel("False Positive Rate")
             plt.ylabel("True Positive Rate")
@@ -101,13 +105,24 @@ def plot_feature_importance(estimator: object, feature_names: List[str]) -> plt.
     """
 
     if not hasattr(estimator, "feature_importances_"):
-        raise ValueError("The estimator does not have a 'feature_importances_' attribute.")
-    if not isinstance(feature_names, list) or len(feature_names) != estimator.n_features_:
-        raise ValueError("The 'feature_names' argument should be a list of the same length as the number of features.")
+        raise ValueError(
+            "The estimator does not have a 'feature_importances_' attribute."
+        )
+    if (
+        not isinstance(feature_names, list)
+        or len(feature_names) != estimator.n_features_
+    ):
+        raise ValueError(
+            "The 'feature_names' argument should be a list of the same length as the number of features."
+        )
 
     feature_importances = estimator.feature_importances_
-    feature_importances_df = pd.DataFrame({"feature": feature_names, "importance": feature_importances})
-    feature_importances_df = feature_importances_df.sort_values(by="importance", ascending=False)
+    feature_importances_df = pd.DataFrame(
+        {"feature": feature_names, "importance": feature_importances}
+    )
+    feature_importances_df = feature_importances_df.sort_values(
+        by="importance", ascending=False
+    )
 
     fig, ax = plt.subplots()
     sns.barplot(x="importance", y="feature", data=feature_importances_df, ax=ax)

@@ -164,7 +164,7 @@ def regression_metrics(y_true, y_pred):
         "MAPE": mape,
         "SMAPE": smape,
         "MdAPE": mdape,
-        "SMdAPE": smdape
+        "SMdAPE": smdape,
     }
 
     return d_metrics

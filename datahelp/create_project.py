@@ -127,7 +127,9 @@ def model_save(model, name="model", method="joblib"):
     }
 
     if method not in SUPPORTED_METHODS:
-        raise ValueError(f"Method {method} not supported. Supported methods are: {list(SUPPORTED_METHODS.keys())}")
+        raise ValueError(
+            f"Method {method} not supported. Supported methods are: {list(SUPPORTED_METHODS.keys())}"
+        )
     try:
         model_path = os.path.join(_get_path("modelpath"), name)
 

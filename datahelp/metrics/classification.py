@@ -98,7 +98,7 @@ def imbalanced_classification_metrics(y_true, y_pred):
     balanced_accuracy = 0.5 * (tpr + tnr)
 
     # Discriminant power
-    dp = np.sqrt(3) / np.pi * (np.log(tpr / (1-tnr)) + np.log(tnr / (1-tpr)))
+    dp = np.sqrt(3) / np.pi * (np.log(tpr / (1 - tnr)) + np.log(tnr / (1 - tpr)))
 
     d_metrics = {
         "True positive rate": tpr,
@@ -106,7 +106,7 @@ def imbalanced_classification_metrics(y_true, y_pred):
         "False positive rate": fpr,
         "False negative rate": fnr,
         "Balanced accuracy": balanced_accuracy,
-        "Discriminant power": dp
+        "Discriminant power": dp,
     }
 
     return d_metrics

@@ -14,7 +14,9 @@ else:
 # pre-processing data - remove noise andd missing data
 
 
-def drop_missing(data: Union[pd.DataFrame, pd.Series], threshold=95) -> Union[pd.DataFrame, pd.Series]:
+def drop_missing(
+    data: Union[pd.DataFrame, pd.Series], threshold=95
+) -> Union[pd.DataFrame, pd.Series]:
     """
     Drops missing columns with a threshold of missing data.
 
@@ -31,7 +33,9 @@ def drop_missing(data: Union[pd.DataFrame, pd.Series], threshold=95) -> Union[pd
         data = pd.DataFrame()
 
     if not isinstance(data, (pd.DataFrame, pd.Series)):
-        raise TypeError(f"data must be a pandas DataFrame or Series, but got {type(data)}")
+        raise TypeError(
+            f"data must be a pandas DataFrame or Series, but got {type(data)}"
+        )
 
     missing_data = data.isna().mean() * 100
     cols_to_drop = missing_data[missing_data >= threshold].index
@@ -39,7 +43,9 @@ def drop_missing(data: Union[pd.DataFrame, pd.Series], threshold=95) -> Union[pd
     if not cols_to_drop.empty:
         n_cols_dropped = len(cols_to_drop)
         n_cols_orig = data.shape[1]
-        print(f"Dropped {n_cols_dropped}/{n_cols_orig} ({n_cols_dropped/n_cols_orig:.1%}) columns.")
+        print(
+            f"Dropped {n_cols_dropped}/{n_cols_orig} ({n_cols_dropped/n_cols_orig:.1%}) columns."
+        )
         data = data.drop(columns=cols_to_drop, axis=1)
 
     return data
@@ -135,7 +141,9 @@ def detect_outliers(data: Union[pd.DataFrame, pd.Series], features, n=2):
         raise ValueError("Expected a pandas dataframe or series, but got None")
 
     if not isinstance(data, (pd.DataFrame, pd.Series)):
-        raise TypeError(f"data must be a pandas DataFrame or Series, but got {type(data)}")
+        raise TypeError(
+            f"data must be a pandas DataFrame or Series, but got {type(data)}"
+        )
 
     if features is not None:
         if not isinstance(features, list):
@@ -152,7 +160,9 @@ def detect_outliers(data: Union[pd.DataFrame, pd.Series], features, n=2):
         Q1, Q3 = np.nanpercentile(data[col], [25, 75])
         IQR = Q3 - Q1
 
-        outlier_list_col = data[(data[col] < Q1 - 1.5 * IQR) | (data[col] > Q3 + 1.5 * IQR)].index
+        outlier_list_col = data[
+            (data[col] < Q1 - 1.5 * IQR) | (data[col] > Q3 + 1.5 * IQR)
+        ].index
 
         outlier_indices.extend(outlier_list_col)
 

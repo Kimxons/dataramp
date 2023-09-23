@@ -22,7 +22,9 @@ def plot_missing(df: Union[pd.DataFrame, pd.Series]) -> None:
     """
     if df is not None:
         if not isinstance(df, (pd.DataFrame, pd.Series)):
-            raise TypeError("df: Expecting a pandas DataFrame or Series, got {type(df)}")
+            raise TypeError(
+                "df: Expecting a pandas DataFrame or Series, got {type(df)}"
+            )
         sns.heatmap(df.isnull(), cbar=True)
         plt.show()
     raise ValueError("EXpected a pandas dataframe or series")

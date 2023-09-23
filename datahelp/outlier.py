@@ -11,6 +11,7 @@ from sklearn.exceptions import NotFittedError
 
 class OutlierDetector:
     """Base class for all outlier detectors."""
+
     def __init__(self):
         self._support = None
 
@@ -54,9 +55,10 @@ class OutlierDetector:
             input vector.
         """
         if not self._is_fitted:
-            raise NotFittedError("This {} instance is not fitted yet. Call "
-                                 "'fit' with appropriate arguments."
-                                 .format(self.__class__.__name__))
+            raise NotFittedError(
+                "This {} instance is not fitted yet. Call "
+                "'fit' with appropriate arguments.".format(self.__class__.__name__)
+            )
 
         mask = self._support
         return mask if not indices else np.where(mask)[0]
@@ -81,6 +83,7 @@ class RangeDetector(BaseEstimator, OutlierDetector):
         Density interval (``method="HDI"``) and Equal-tailed interval
         (``method="ETI"``).
     """
+
     def __init__(self, interval_length=0.5, k=1.5, method="ETI"):
         self.interval_length = interval_length
         self.k = k
@@ -88,13 +91,20 @@ class RangeDetector(BaseEstimator, OutlierDetector):
 
     def _fit(self, x, y=None):
         if self.method not in ("ETI", "HDI"):
-            raise ValueError('Invalid value for method. Allowed string '
-                             'values are "ETI" and "HDI".')
+            raise ValueError(
+                "Invalid value for method. Allowed string "
+                'values are "ETI" and "HDI".'
+            )
 
-        if (not isinstance(self.interval_length, numbers.Number) or
-                not 0 <= self.interval_length <= 1):
-            raise ValueError("Interval length must a value in [0, 1]; got {}."
-                             .format(self.interval_length))
+        if (
+            not isinstance(self.interval_length, numbers.Number)
+            or not 0 <= self.interval_length <= 1
+        ):
+            raise ValueError(
+                "Interval length must a value in [0, 1]; got {}.".format(
+                    self.interval_length
+                )
+            )
 
         if self.method == "ETI":
             lower = 100 * (1 - self.interval_length) / 2
@@ -139,14 +149,15 @@ class ModifiedZScoreDetector(BaseEstimator, OutlierDetector):
               Outliers", The ASQC Basic References in Quality Control:
               Statistical Techniques, Edward F. Mykytka, Ph.D., Editor, 1993.
     """
+
     def __init__(self, threshold=3.5):
         self.threshold = threshold
 
     def _fit(self, x, y=None):
-        if (not isinstance(self.threshold, numbers.Number) or
-                self.threshold < 0):
-            raise ValueError("threshold must be a value >= 0; got {}".
-                             format(self.threshold))
+        if not isinstance(self.threshold, numbers.Number) or self.threshold < 0:
+            raise ValueError(
+                "threshold must be a value >= 0; got {}".format(self.threshold)
+            )
 
         x = np.asarray(x)
         median = np.median(x)
@@ -174,25 +185,30 @@ class YQuantileDetector(BaseEstimator, OutlierDetector):
     n_bins : int (default=5)
         The maximum number of bins to consider.
     """
-    def __init__(self, outlier_detector="zscore",  outlier_params=None,
-                 n_bins=5):
+
+    def __init__(self, outlier_detector="zscore", outlier_params=None, n_bins=5):
         self.outlier_detector = outlier_detector
         self.outlier_params = outlier_params
         self.n_bins = n_bins
 
     def _fit(self, x, y):
         if self.outlier_detector not in ("range", "zscore"):
-            raise ValueError('Invalid value for outlier_detector. Allowed '
-                             'string values are "range" and "zscore".')
+            raise ValueError(
+                "Invalid value for outlier_detector. Allowed "
+                'string values are "range" and "zscore".'
+            )
 
         if self.outlier_params is not None:
             if not isinstance(self.outlier_params, dict):
-                raise TypeError("outlier_params must be a dict or None; "
-                                "got {}.".format(self.outlier_params))
+                raise TypeError(
+                    "outlier_params must be a dict or None; "
+                    "got {}.".format(self.outlier_params)
+                )
 
         if not isinstance(self.n_bins, numbers.Integral) or self.n_bins <= 0:
-            raise ValueError("bins must be a positive integer; got {}."
-                             .format(self.n_bins))
+            raise ValueError(
+                "bins must be a positive integer; got {}.".format(self.n_bins)
+            )
 
         x = np.asarray(x)
         y = np.asarray(y)

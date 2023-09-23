@@ -1,6 +1,6 @@
 #!/bin/bash
 
-LOG_FILE="deployment.log"
+LOG_FILE="dh_logs/deployment.log"
 CUSTOM_LOGGER_MODULE="custom_logger.py"
 PYTHON_BIN="python3"
 

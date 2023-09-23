@@ -69,7 +69,7 @@ def extract_time_info(data=None, time_cols=None, subset=None, drop=True):
     pass
 
 
-def get_time_elapsed(data=None, date_cols=None, by='s', col_name=None):
+def get_time_elapsed(data=None, date_cols=None, by="s", col_name=None):
     """
     Calculates the time elapsed between two specified date columns
     and returns the value in either seconds (s), minutes (m), or hours (h).
@@ -112,13 +112,14 @@ def get_period_of_day(date_col=None):
     ----------
     Series of mapped values.
     """
+
     def _map_hours(x):
         if x in [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]:
-            return 'morning'
+            return "morning"
         elif x in [13, 14, 15, 16]:
-            return 'afternoon'
+            return "afternoon"
         else:
-            return 'evening'
+            return "evening"
 
     if date_col is None:
         raise ValueError("date_cols: Expect a date column, got 'None'")
@@ -152,8 +153,18 @@ def describe_date(data=None, date_col=None):
     print(df.describe())
 
 
-def timeplot(data=None, num_cols=None, time_col=None, subplots=True, marker='.',
-             figsize=(15, 10), y_label='Daily Totals', save_fig=False, alpha=0.5, linestyle='None'):
+def timeplot(
+    data=None,
+    num_cols=None,
+    time_col=None,
+    subplots=True,
+    marker=".",
+    figsize=(15, 10),
+    y_label="Daily Totals",
+    save_fig=False,
+    alpha=0.5,
+    linestyle="None",
+):
     """
     Plot all numeric features against the time column. Interpreted as a time series plot.
 
@@ -196,7 +207,9 @@ def timeplot(data=None, num_cols=None, time_col=None, subplots=True, marker='.',
         num_cols.remove(time_col)
 
     if time_col is None:
-        raise ValueError("time_col: Expecting a string name of the time column, got 'None'")
+        raise ValueError(
+            "time_col: Expecting a string name of the time column, got 'None'"
+        )
 
     # Make time_col the index
     data[time_col] = pd.to_datetime(data[time_col])
@@ -204,22 +217,35 @@ def timeplot(data=None, num_cols=None, time_col=None, subplots=True, marker='.',
     data = data.set_index(time_col)
 
     if subplots:
-        axes = data[num_cols].plot(marker=marker, subplots=True, figsize=figsize, alpha=alpha, linestyle=linestyle)
+        axes = data[num_cols].plot(
+            marker=marker,
+            subplots=True,
+            figsize=figsize,
+            alpha=alpha,
+            linestyle=linestyle,
+        )
         for feature, ax in zip(num_cols, axes):
             ax.set_ylabel(y_label)
             ax.set_title("Timeseries Plot of '{}'".format(time_col))
             if save_fig:
-                plt.savefig('fig_timeseries_plot_against_{}'.format(feature))
+                plt.savefig("fig_timeseries_plot_against_{}".format(feature))
             plt.show()
     else:
         for feature in num_cols:
             fig = plt.figure()
             ax = fig.gca()
-            axes = data[feature].plot(marker=marker, subplots=False, figsize=figsize, alpha=alpha, linestyle=linestyle, ax=ax)
+            axes = data[feature].plot(
+                marker=marker,
+                subplots=False,
+                figsize=figsize,
+                alpha=alpha,
+                linestyle=linestyle,
+                ax=ax,
+            )
             plt.ylabel(feature)
             ax.set_title("Timeseries Plot of '{}' vs. '{}' ".format(time_col, feature))
             if save_fig:
-                plt.savefig('fig_timeseries_plot_against_{}'.format(feature))
+                plt.savefig("fig_timeseries_plot_against_{}".format(feature))
             plt.show()
 
 
