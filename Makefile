@@ -21,7 +21,7 @@ help:
 	@echo "clean-pyc - remove Python file artifacts"
 	@echo "clean-test - remove test and coverage artifacts"
 	@echo "clean-test-all - remove all test-related artifacts including tox"
-	@echo "lint - check style with flake8"
+	@echo "lint - check style with custom lint"
 	@echo "format - format code with black"
 	@echo "test - run tests quickly with the default Python"
 	@echo "test-coverage - run tests with coverage report"
@@ -64,10 +64,9 @@ docs:
 
 lint:
 	./lint.sh all
-	flake8  --exclude=*/migrations/* --max-line-length 88 drf_user
 
 format:
-	black --exclude .+/migrations/.+\.py drf_user
+	black datahelp
 
 test:
 	$(PYTHON) -m pytest --disable-pytest-warnings --ds=tests.settings --cov=drf_user tests/
@@ -89,10 +88,3 @@ release: clean
 dist: clean
 	python setup.py sdist
 	ls -l dist
-serve:
-	@echo Starting server
-	python manage.py runserver
-
-migrate:
-	@echo Running migrations
-	python manage.py migrate

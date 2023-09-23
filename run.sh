@@ -1,19 +1,46 @@
 #!/bin/bash
 
-# Exit on any error
-# set -e
+LOG_FILE="deployment.log"
+CUSTOM_LOGGER_MODULE="custom_logger.py"
+PYTHON_BIN="python3"
 
-# Check if all required packages are installed
-python check_requirements.py requirements_dev.txt
+log() {
+  echo "$(date "+%Y-%m-%d %H:%M:%S"): $1" >> "$LOG_FILE"
+}
 
-# If any package is missing, install it using pip
+initialize_custom_logger() {
+  if [ -f "$CUSTOM_LOGGER_MODULE" ]; then
+    log "Initializing custom logger..."
+    $PYTHON_BIN -c "from custom_logger import Logger; logger = Logger(logger_name='deployment', filename='$LOG_FILE')"
+  else
+    log "Custom logger module '$CUSTOM_LOGGER_MODULE' not found. Skipping custom logging."
+  fi
+}
+
+close_custom_logger() {
+  if [ -f "$CUSTOM_LOGGER_MODULE" ]; then
+    log "Closing custom logger..."
+    $PYTHON_BIN -c "from custom_logger import Logger; logger = Logger(logger_name='deployment', filename='$LOG_FILE'); logger.close()"
+  fi
+}
+
+cleanup() {
+  close_custom_logger
+  exit
+}
+
+trap cleanup EXIT
+
+log "Deployment started."
+
+log "Checking required packages..."
+$PYTHON_BIN check_requirements.py requirements_dev.txt
+
 if [[ $? -eq 1 ]]; then
-    echo "Installing missing packages"
-    pip install -r requirements_dev.txt
+    log "Installing missing packages..."
+    $PYTHON_BIN -m pip install -r requirements_dev.txt
 fi
 
-# Run the datahelp module with any command-line arguments passed to the script
-python -m datahelp "$@"
+initialize_custom_logger
 
-# Prompt the user to press Enter to continue
-read -p "Press Enter or any key to continue..."
+log "Deployment completed successfully."
