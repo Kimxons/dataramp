@@ -1,18 +1,20 @@
 import argparse
 import json
-import logging
 import os
 import pickle
 from pathlib import Path
 from typing import Optional
 
 import joblib
-import tensorflow as tf
-from logger import create_rotating_log
+# import tensorflow as tf
 from utils import _get_path
+
+from custom_logger import Logger
 
 __author__ = "Meshack Kitonga"
 __email__ = "dev.kitonga@gmail.com"
+
+logger = Logger(logger_name="dh_logger", filename="dh_logs/logs.log")
 
 
 def create_directory(path: Optional[Path]):
@@ -44,9 +46,9 @@ def create_project(project_name: Optional[str]):
         raise ValueError("Project name cannot be empty or None.")
 
     log_filename = f"{project_name}.log"
-    create_rotating_log(log_filename)
+    logger = Logger(logger_name="dh_logger", filename=f"dh_logs/{log_filename}")
 
-    logging.info("Creating project...")
+    logger.info("Creating project...")
 
     # project directory structure
     base_path = Path.cwd() / project_name
@@ -85,7 +87,7 @@ def create_project(project_name: Optional[str]):
 
     # project config settings
     config = {
-        "description": "This file holds all configuration settings for the current project",
+        "description": "Holds the project config settings",
         "basepath": str(base_path),
         "datapath": str(data_path),
         "processedpath": str(processed_path),
@@ -94,13 +96,13 @@ def create_project(project_name: Optional[str]):
         "modelspath": str(models_path),
     }
 
-    with open(base_path / "config.json", "w") as configfile:
-        json.dump(config, configfile, indent=4)
+    with open(base_path / ".datahelprc", "r") as config_file:
+        json.dump(config, config_file, indent=4)
 
     with open(base_path / "README.txt", "w") as readme:
-        readme.write("Creates a standard data science project directory structure.")
+        readme.write("Creates a std data science project directory structure.")
 
-    logging.info(f"Project created successuflly in {base_path}")
+    logger.info(f"Project created successuflly in {base_path}")
 
 
 def model_save(model, name="model", method="joblib"):
@@ -123,7 +125,7 @@ def model_save(model, name="model", method="joblib"):
     SUPPORTED_METHODS = {
         "joblib": joblib.dump,
         "pickle": pickle.dump,
-        "keras": tf.keras.models.save_model,
+        # "keras": tf.keras.models.save_model,
     }
 
     if method not in SUPPORTED_METHODS:
@@ -137,17 +139,17 @@ def model_save(model, name="model", method="joblib"):
 
         SUPPORTED_METHODS[method](model, filename)
 
-        logging.info(f"Model saved successfully to {filename}")
+        logger.info(f"Model saved successfully to {filename}")
     except FileNotFoundError:
         msg = "models folder does not exist. Saving model to the {} folder. It is recommended that you start your project using datahelp's start_project function".format(
             name
         )
-        logging.info(msg)
+        logger.info(msg)
 
         filename = f"{name}.{method}"
 
         SUPPORTED_METHODS[method](model, filename)
 
-        logging.info(f"Model saved successfully to {filename}")
+        logger.info(f"Model saved successfully to {filename}")
     except Exception as e:
-        logging.error(f"Failed to save model due to {e}")
+        logger.error(f"Failed to save model due to {e}")
