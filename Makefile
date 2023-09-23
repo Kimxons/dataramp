@@ -83,7 +83,7 @@ test-all:
 check: clean-build clean-pyc clean-test lint format test-coverage
 
 release: clean
-	python setup.py sdist upload
+	./push_pypi.sh
 
 dist: clean
 	python setup.py sdist
