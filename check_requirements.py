@@ -12,7 +12,9 @@ def check_requirements(requirements_file):
         missing_packages = []
         for requirement in requirements:
             try:
-                subprocess.check_output([sys.executable, "-m", "pip", "show", requirement])
+                subprocess.check_output(
+                    [sys.executable, "-m", "pip", "show", requirement]
+                )
             except subprocess.CalledProcessError:
                 missing_packages.append(requirement)
 
