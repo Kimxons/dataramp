@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Exit on any error
-set -e
+# set -e
 
 # Check if all required packages are installed
 python check_requirements.py requirements_dev.txt

@@ -55,6 +55,8 @@ PyPi: https://pypi.org/project/datahelp/
 
 For detailed usage instructions and API reference, please refer to the official documentation at [https://datahelp-docs.example.com](https://datahelp-docs.example.com)
 
+We use SemVer for versioning
+
 ## Contribution
 
 datahelp is an open-source project, and we welcome contributions from the data science community. If you find a bug, have a feature request, or want to contribute improvements, please open an issue or submit a pull request on our GitHub repository at [https://github.com/kimxons/datahelp](https://github.com/kimxons/datahelp).
