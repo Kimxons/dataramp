@@ -200,3 +200,10 @@ def winsorize_outliers(data: np.ndarray, lower_limit=0.01, upper_limit=0.99):
     data_winsorized = np.where(data_winsorized > upper_bound, upper_bound, data_winsorized)
 
     return data_winsorized
+
+# Consider specific columns i.e columns with outliers
+features=['feature1','feature2','feature3']
+
+for col in df.columns:
+    if col in features:
+        df[col] = winsorize_outliers(df[col])
