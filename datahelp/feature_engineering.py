@@ -172,3 +172,31 @@ def detect_outliers(data: Union[pd.DataFrame, pd.Series], features, n=2):
     multiple_outliers = outlier_indices_counts[outlier_indices_counts > n].index
 
     return multiple_outliers
+
+def winsorize_outliers(data: np.ndarray, lower_limit=0.01, upper_limit=0.99):
+     """
+    Apply Winsorization to cap or floor extreme values in a numpy array.
+
+    Parameters
+    ----------
+    data : numpy ndarray
+        The data to be Winsorized.
+    lower_limit : float, optional
+        The lower percentile limit for capping. Values below this percentile
+        will be set to the value at this percentile. Default is 0.01 (1st percentile).
+    upper_limit : float, optional
+        The upper percentile limit for capping. Values above this percentile
+        will be set to the value at this percentile. Default is 0.99 (99th percentile).
+
+    Returns
+    -------
+    data_winsorized : numpy ndarray
+        The Winsorized data.
+    """
+    lower_bound = np.percentile(data, lower_limit * 100)
+    upper_bound = np.percentile(data, upper_limit * 100)
+
+    data_winsorized = np.where(data < lower_bound, lower_bound, data)
+    data_winsorized = np.where(data_winsorized > upper_bound, upper_bound, data_winsorized)
+
+    return data_winsorized
