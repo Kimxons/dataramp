@@ -225,26 +225,26 @@ def display_missing(
     if not isinstance(df, pd.DataFrame):
         raise TypeError("data must be a pandas DataFrame")
 
-    df = df.isna().sum().to_frame(name="missing_count")
-    df["missing_percent"] = df["missing_count"] / len(df) * 100
+    dfs = df.isna().sum().to_frame(name="missing_count").reset_index().rename(columns={'index':'variable'})
+    dfs["missing_percent"] = dfs["missing_count"] / len(df) * 100
 
     if exclude_zero:
-        df = df[df["missing_count"] > 0]
+        dfs = dfs[dfs["missing_count"] > 0]
 
     if sort_by == "missing_percent":
-        df = df.sort_values(by="missing_percent", ascending=ascending)
+        dfs = dfs.sort_values(by="missing_percent", ascending=ascending)
     else:
-        df = df.sort_values(by="missing_count", ascending=ascending)
+        dfs = dfs.sort_values(by="missing_count", ascending=ascending)
 
     if plot:
         plt.figure(figsize=(12, 6))
         plt.title("Missing Values Heatmap")
         plt.xticks(rotation=90)
         plt.yticks(rotation=0)
-        sns.heatmap(df.isna(), cmap="Reds", cbar=False)
+        sns.heatmap(dfs.isna(), cmap="Reds", cbar=False)
         plt.show()
     else:
-        return df
+        return dfs
 
 
 def get_unique_counts(data=None):
