@@ -220,7 +220,7 @@ def display_missing(
 
     """
     if df is None:
-        raise ValueError("Expected a pandas dataframe, but got None")
+        raise ValueError("Expected a pandas Dataframe, but got None")
 
     if not isinstance(df, pd.DataFrame):
         raise TypeError("data must be a pandas DataFrame")
