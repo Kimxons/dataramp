@@ -3,9 +3,9 @@ import json
 import os
 import pickle
 from pathlib import Path
-from typing import Optional
 
 import joblib
+
 # import tensorflow as tf
 from utils import _get_path
 
@@ -17,12 +17,12 @@ __email__ = "dev.kitonga@gmail.com"
 logger = Logger(logger_name="dh_logger", filename="dh_logs/logs.log")
 
 
-def create_directory(path: Optional[Path]):
+def create_directory(path: Path):
     """Create a directory if it does not exist already"""
     path.mkdir(parents=True, exist_ok=True)
 
 
-def create_project(project_name: Optional[str]):
+def create_project(project_name: str):
     """
     Creates a standard data science project directory structure.
 
@@ -32,25 +32,7 @@ def create_project(project_name: Optional[str]):
     Returns:
         None
     """
-    parser = argparse.ArgumentParser(description="Create a new data science project.")
-    parser.add_argument(
-        "project_name",
-        nargs="?",
-        default="project_name",
-        help="Name of the project directory",
-    )
-    args = parser.parse_args()
-    create_project(args.project_name)
-
-    if not project_name:
-        raise ValueError("Project name cannot be empty or None.")
-
-    log_filename = f"{project_name}.log"
-    logger = Logger(logger_name="dh_logger", filename=f"dh_logs/{log_filename}")
-
-    logger.info("Creating project...")
-
-    # project directory structure
+    # Create project directories
     base_path = Path.cwd() / project_name
     data_path = base_path / "datasets"
     processed_path = data_path / "processed"
@@ -65,27 +47,17 @@ def create_project(project_name: Optional[str]):
     test_path = scripts_path / "test"
     notebooks_path = src_path / "notebooks"
 
-    # the project directories
+    # The project directories
     dirs = [
-        base_path,
-        data_path,
-        processed_path,
-        raw_path,
-        output_path,
-        models_path,
-        src_path,
-        scripts_path,
-        ingest_path,
-        preparation_path,
-        modeling_path,
-        test_path,
-        notebooks_path,
+        base_path, data_path, processed_path, raw_path, output_path, models_path,
+        src_path, scripts_path, ingest_path, preparation_path, modeling_path,
+        test_path, notebooks_path
     ]
 
-    for dir in dirs:
-        create_directory(dir)
+    for directory in dirs:
+        create_directory(directory)
 
-    # project config settings
+    # Project config settings
     config = {
         "description": "Holds the project config settings",
         "basepath": str(base_path),
@@ -96,20 +68,19 @@ def create_project(project_name: Optional[str]):
         "modelspath": str(models_path),
     }
 
-    with open(base_path / ".datahelprc", "r") as config_file:
+    with open(base_path / ".datahelprc", "w") as config_file:
         json.dump(config, config_file, indent=4)
 
     with open(base_path / "README.txt", "w") as readme:
-        readme.write("Creates a std data science project directory structure.")
+        readme.write("Creates a standard data science project directory structure.")
 
-    logger.info(f"Project created successuflly in {base_path}")
+    logger.info(f"Project created successfully in {base_path}")
 
 
 def model_save(model, name="model", method="joblib"):
     """
     Save a trained machine learning model in the models folder.
-    Folders must be initialized using the datahelp start_project function.
-    Creates a folder models if datahelp standard directory is not provided.
+
     Parameters:
         model: binary file, Python object
             Trained model file to save in the models folder.
@@ -117,11 +88,13 @@ def model_save(model, name="model", method="joblib"):
             Name of the model to save it with.
         method: str, optional (default='joblib')
             Format to use in saving the model. It can be one of ['joblib', 'pickle', 'keras'].
+
     Returns:
         None
     """
     if model is None:
         raise ValueError("Expecting a binary model file, got 'None'")
+
     SUPPORTED_METHODS = {
         "joblib": joblib.dump,
         "pickle": pickle.dump,
@@ -133,17 +106,16 @@ def model_save(model, name="model", method="joblib"):
             f"Method {method} not supported. Supported methods are: {list(SUPPORTED_METHODS.keys())}"
         )
     try:
-        model_path = os.path.join(_get_path("modelpath"), name)
+        model_path = _get_path("modelpath")
 
-        filename = f"{model_path}.{method}"
+        filename = f"{model_path}/{name}.{method}"
 
         SUPPORTED_METHODS[method](model, filename)
 
         logger.info(f"Model saved successfully to {filename}")
     except FileNotFoundError:
-        msg = "models folder does not exist. Saving model to the {} folder. It is recommended that you start your project using datahelp's start_project function".format(
-            name
-        )
+        msg = f"Models folder does not exist. Saving model to the {name} folder. " \
+              f"It is recommended that you start your project using datahelp's start_project function"
         logger.info(msg)
 
         filename = f"{name}.{method}"

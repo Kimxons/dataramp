@@ -173,8 +173,9 @@ def detect_outliers(data: Union[pd.DataFrame, pd.Series], features, n=2):
 
     return multiple_outliers
 
+
 def winsorize_outliers(data: np.ndarray, lower_limit=0.01, upper_limit=0.99):
-     """
+    """
     Apply Winsorization to cap or floor extreme values in a numpy array.
 
     Parameters
@@ -197,13 +198,16 @@ def winsorize_outliers(data: np.ndarray, lower_limit=0.01, upper_limit=0.99):
     upper_bound = np.percentile(data, upper_limit * 100)
 
     data_winsorized = np.where(data < lower_bound, lower_bound, data)
-    data_winsorized = np.where(data_winsorized > upper_bound, upper_bound, data_winsorized)
+    data_winsorized = np.where(
+        data_winsorized > upper_bound, upper_bound, data_winsorized
+    )
 
     return data_winsorized
 
-# Consider specific columns i.e columns with outliers
-features=['feature1','feature2','feature3']
 
-for col in df.columns:
-    if col in features:
-        df[col] = winsorize_outliers(df[col])
+# Consider specific columns i.e columns with outliers
+# features=['feature1','feature2','feature3']
+
+# for col in df.columns:
+#     if col in features:
+#         df[col] = winsorize_outliers(df[col])
