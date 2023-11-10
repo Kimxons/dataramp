@@ -36,8 +36,23 @@ def get_num_vars(df: Union[pd.DataFrame, pd.Series]) -> None:
 
     return num_vars
 
+def describe_df(df: Union[pd.DataFrame, pd.Series]) -> pd.DataFrame:
+    """
+    Describes a DataFrame or Series and returns a DataFrame with the descriptions.
 
-def describe_df(df: Union[pd.DataFrame, pd.Series]) -> None:
+    Parameters:
+    -----------
+    df : pandas DataFrame or Series object
+        The input DataFrame or Series object to describe.
+
+    Returns:
+    --------
+    pandas DataFrame
+        A DataFrame containing the descriptions of the input DataFrame or Series.
+    """
+    if not isinstance(df, pd.DataFrame):
+        raise TypeError("df must be a pandas DataFrame")
+
     if df.empty:
         raise ValueError("Input DataFrame is empty.")
 
@@ -62,8 +77,7 @@ def describe_df(df: Union[pd.DataFrame, pd.Series]) -> None:
 
     return result_df
 
-
-def get_cat_vars(df: Union[pd.DataFrame, pd.Series]) -> None:
+def get_cat_vars(df: Union[pd.DataFrame, pd.Series]) -> list:
     """
     Returns the list of categorical features in a DataFrame or Series object.
 
@@ -77,18 +91,14 @@ def get_cat_vars(df: Union[pd.DataFrame, pd.Series]) -> None:
     list
         The list of categorical feature column names in the input DataFrame or Series object.
     """
-    if not isinstance(df, (pd.DataFrame, pd.Series)):
+    if not isinstance(df, pd.DataFrame):
         raise TypeError("df must be a pandas DataFrame or Series")
 
     cat_vars = df.select_dtypes(include="object").columns.tolist()
 
     return cat_vars
 
-
-# TODO - Rename one of the get_num_counts or get_cat_counts functions to avoid confusion.
-
-
-def get_cat_counts(df: Union[pd.DataFrame, pd.Series]) -> None:
+def get_cat_counts(df: Union[pd.DataFrame, pd.Series]) -> pd.DataFrame:
     """
     Gets the unique count of categorical features.
 
@@ -100,7 +110,7 @@ def get_cat_counts(df: Union[pd.DataFrame, pd.Series]) -> None:
             Unique value counts of the categorical features in the dataframe.
     """
 
-    if not isinstance(df, (pd.DataFrame, pd.Series)):
+    if not isinstance(df, pd.DataFrame):
         raise TypeError("df must be a pandas DataFrame or Series")
 
     cat_vars = get_cat_vars(df)
