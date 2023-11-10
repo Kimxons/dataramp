@@ -1,6 +1,6 @@
 import json
 import os
-
+from pathlib import Path
 
 def _get_home_path(filepath):
     """
@@ -15,9 +15,8 @@ def _get_home_path(filepath):
     ]
     for path in paths:
         if filepath.endswith(path):
-            return filepath[0 : filepath.index(path)]
+            return str(Path(filepath).parents[len(path.split('/')) - 1])
     return filepath
-
 
 def _get_path(dir=None):
     """
@@ -33,10 +32,10 @@ def _get_path(dir=None):
         try:
             config = json.load(configfile)
         except json.JSONDecodeError as e:
-            raise ValueError(f"Error loading config file {config_path}: {e}")
+            raise ValueError(f"Error decoding JSON in config file {config_path}: {e}")
 
     if dir not in config:
         raise KeyError(f"No key {dir} in config file {config_path}")
 
-    path = config[dir]
+    path = os.path.join(homedir, config[dir])
     return path

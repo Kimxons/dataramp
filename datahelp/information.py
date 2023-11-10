@@ -1,10 +1,9 @@
 from __version__ import __version__
 
-
 def print_header():
     header = (
         "datahelp (Version {})\n"
-        "Copyright (c) 2023 Meshack Kitonga License 2.0"
+        "Copyright (c) 2023 Meshack Kitonga License 1.0"
         "\n".format(__version__)
     )
 

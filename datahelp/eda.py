@@ -7,6 +7,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import seaborn as sns
+from tqdm import tqdm
 
 if platform.system() == "Darwin":
     plt.switch_backend("TkAgg")
@@ -34,6 +35,32 @@ def get_num_vars(df: Union[pd.DataFrame, pd.Series]) -> None:
     num_vars = df.select_dtypes(include=np.number).columns.tolist()
 
     return num_vars
+
+
+def describe_df(df: Union[pd.DataFrame, pd.Series]) -> None:
+    if df.empty:
+        raise ValueError("Input DataFrame is empty.")
+
+    with tqdm(
+        total=len(df.columns), desc="Describing DataFrame", unit="column"
+    ) as pbar:
+        # Handle numerical features
+        numeric_descr = [
+            df[col].describe().apply('{0:.3f}'.format)
+            for col in df.select_dtypes(include=np.number).columns
+        ]
+        # Handle categorical features
+        non_numeric_descr = [
+            df[col].describe().apply(str)
+            for col in df.select_dtypes(exclude=np.number).columns
+        ]
+
+        descr = numeric_descr + non_numeric_descr
+        pbar.update(len(df.columns))
+
+    result_df = pd.concat(descr, axis=1)
+
+    return result_df
 
 
 def get_cat_vars(df: Union[pd.DataFrame, pd.Series]) -> None:
@@ -225,7 +252,13 @@ def display_missing(
     if not isinstance(df, pd.DataFrame):
         raise TypeError("data must be a pandas DataFrame")
 
-    dfs = df.isna().sum().to_frame(name="missing_count").reset_index().rename(columns={'index':'variable'})
+    dfs = (
+        df.isna()
+        .sum()
+        .to_frame(name="missing_count")
+        .reset_index()
+        .rename(columns={"index": "variable"})
+    )
     dfs["missing_percent"] = dfs["missing_count"] / len(df) * 100
 
     if exclude_zero:

@@ -12,6 +12,7 @@
 /pytest_cache/
 /venv/
 /env
+.env
 .venv/
 bin/
 lib/
