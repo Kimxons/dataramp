@@ -3,7 +3,6 @@
 import subprocess
 import sys
 
-
 def check_requirements(requirements_file):
     try:
         with open(requirements_file, "r") as file:
@@ -13,7 +12,9 @@ def check_requirements(requirements_file):
         for requirement in requirements:
             try:
                 subprocess.check_output(
-                    [sys.executable, "-m", "pip", "show", requirement]
+                    [sys.executable, "-m", "pip", "show", requirement],
+                    stderr=subprocess.STDOUT,
+                    universal_newlines=True,
                 )
             except subprocess.CalledProcessError:
                 missing_packages.append(requirement)
@@ -23,7 +24,6 @@ def check_requirements(requirements_file):
     except FileNotFoundError:
         print(f"Error: {requirements_file} not found.")
         return None
-
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:
