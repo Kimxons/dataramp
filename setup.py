@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 
 import os
-from setuptools import find_packages, setup
+
 from datahelp.__version__ import __version__
+from setuptools import find_packages, setup
 
 directory = os.path.abspath(os.path.dirname(__file__))
 with open(os.path.join(directory, 'README.md'), encoding='utf-8') as f:

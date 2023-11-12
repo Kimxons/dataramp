@@ -50,9 +50,11 @@ def extract_date_info(data=None, date_cols=None, subset=None, drop=True):
         raise ValueError("date_cols must not be an empty list.")
 
     if subset is None:
-        subset = ['dow', 'doy', 'dom', 'hr', 'min', 'is_wkd', 'yr', 'qtr', 'mth']
+        subset = ["dow", "doy", "dom", "hr", "min", "is_wkd", "yr", "qtr", "mth"]
 
-    if not set(subset).issubset(['dow', 'doy', 'dom', 'hr', 'min', 'is_wkd', 'yr', 'qtr', 'mth']):
+    if not set(subset).issubset(
+        ["dow", "doy", "dom", "hr", "min", "is_wkd", "yr", "qtr", "mth"]
+    ):
         raise ValueError("Invalid values in the 'subset' parameter.")
 
     for col in date_cols:
@@ -61,32 +63,32 @@ def extract_date_info(data=None, date_cols=None, subset=None, drop=True):
 
     df = data.copy()
 
-    if 'dow' in subset:
-        df['dow'] = df[date_cols].dt.dayofweek
+    if "dow" in subset:
+        df["dow"] = df[date_cols].dt.dayofweek
 
-    if 'doy' in subset:
-        df['doy'] = df[date_cols].dt.dayofyear
+    if "doy" in subset:
+        df["doy"] = df[date_cols].dt.dayofyear
 
-    if 'dom' in subset:
-        df['dom'] = df[date_cols].dt.day
+    if "dom" in subset:
+        df["dom"] = df[date_cols].dt.day
 
-    if 'hr' in subset:
-        df['hr'] = df[date_cols].dt.hour
+    if "hr" in subset:
+        df["hr"] = df[date_cols].dt.hour
 
-    if 'min' in subset:
-        df['min'] = df[date_cols].dt.minute
+    if "min" in subset:
+        df["min"] = df[date_cols].dt.minute
 
-    if 'is_wkd' in subset:
-        df['is_wkd'] = df[date_cols].dt.dayofweek < 5
+    if "is_wkd" in subset:
+        df["is_wkd"] = df[date_cols].dt.dayofweek < 5
 
-    if 'yr' in subset:
-        df['yr'] = df[date_cols].dt.year
+    if "yr" in subset:
+        df["yr"] = df[date_cols].dt.year
 
-    if 'qtr' in subset:
-        df['qtr'] = df[date_cols].dt.quarter
+    if "qtr" in subset:
+        df["qtr"] = df[date_cols].dt.quarter
 
-    if 'mth' in subset:
-        df['mth'] = df[date_cols].dt.month
+    if "mth" in subset:
+        df["mth"] = df[date_cols].dt.month
 
     if drop:
         df.drop(date_cols, axis=1, inplace=True)
@@ -131,9 +133,9 @@ def extract_time_info(data=None, time_cols=None, subset=None, drop=True):
         raise ValueError("time_cols must not be an empty list.")
 
     if subset is None:
-        subset = ['hours', 'minutes', 'seconds']
+        subset = ["hours", "minutes", "seconds"]
 
-    if not set(subset).issubset(['hours', 'minutes', 'seconds']):
+    if not set(subset).issubset(["hours", "minutes", "seconds"]):
         raise ValueError("Invalid values in the 'subset' parameter.")
 
     for col in time_cols:
@@ -142,14 +144,14 @@ def extract_time_info(data=None, time_cols=None, subset=None, drop=True):
 
     df = data.copy()
 
-    if 'hours' in subset:
-        df['hours'] = df[time_cols].dt.hour
+    if "hours" in subset:
+        df["hours"] = df[time_cols].dt.hour
 
-    if 'minutes' in subset:
-        df['minutes'] = df[time_cols].dt.minute
+    if "minutes" in subset:
+        df["minutes"] = df[time_cols].dt.minute
 
-    if 'seconds' in subset:
-        df['seconds'] = df[time_cols].dt.second
+    if "seconds" in subset:
+        df["seconds"] = df[time_cols].dt.second
 
     if drop:
         df.drop(time_cols, axis=1, inplace=True)
@@ -200,11 +202,13 @@ def get_time_elapsed(data=None, date_cols=None, by="s", col_name=None):
         if col not in data.columns:
             raise ValueError(f"{col} not found in the DataFrame.")
 
-    if by not in ['h', 'm', 's']:
+    if by not in ["h", "m", "s"]:
         raise ValueError("Invalid value for 'by'. It should be one of ['h', 'm', 's'].")
 
     df = data.copy()
-    df[col_name] = (df[date_cols[1]] - df[date_cols[0]]).astype('timedelta64[{}]'.format(by))
+    df[col_name] = (df[date_cols[1]] - df[date_cols[0]]).astype(
+        "timedelta64[{}]".format(by)
+    )
 
     return df
 
@@ -229,9 +233,17 @@ def get_period_of_day(date_col=None):
 
     if date_col.dtype != np.int:
         date_col_hr = pd.to_datetime(date_col).dt.hour
-        return date_col_hr.map(lambda x: "morning" if x in range(13) else ("afternoon" if x in range(13, 17) else "evening"))
+        return date_col_hr.map(
+            lambda x: "morning"
+            if x in range(13)
+            else ("afternoon" if x in range(13, 17) else "evening")
+        )
     else:
-        return date_col.map(lambda x: "morning" if x in range(13) else ("afternoon" if x in range(13, 17) else "evening"))
+        return date_col.map(
+            lambda x: "morning"
+            if x in range(13)
+            else ("afternoon" if x in range(13, 17) else "evening")
+        )
 
 
 def describe_date(data=None, date_col=None):
@@ -375,7 +387,10 @@ def set_date_index(data, date_col):
     data[date_col] = pd.to_datetime(data[date_col])
     return data.set_index(date_col)
 
-def plot_time_series(data, time_col, value_cols, figsize=(15, 8), title="Time Series Plot"):
+
+def plot_time_series(
+    data, time_col, value_cols, figsize=(15, 8), title="Time Series Plot"
+):
     """
     Plot time series data.
 
@@ -406,6 +421,7 @@ def plot_time_series(data, time_col, value_cols, figsize=(15, 8), title="Time Se
     plt.ylabel("Values")
     plt.show()
 
+
 def plot_seasonal_decomposition(data, time_col, value_col, freq=None):
     """
     Plot seasonal decomposition of time series data.
@@ -430,10 +446,11 @@ def plot_seasonal_decomposition(data, time_col, value_col, freq=None):
     """
     from statsmodels.tsa.seasonal import seasonal_decompose
 
-    result = seasonal_decompose(data[value_col], freq=freq, model='additive')
+    result = seasonal_decompose(data[value_col], freq=freq, model="additive")
     result.plot()
     plt.suptitle("Seasonal Decomposition of {}".format(value_col))
     plt.show()
+
 
 def autocorrelation_plot(data, value_col, title="Autocorrelation Plot"):
     """
@@ -460,6 +477,7 @@ def autocorrelation_plot(data, value_col, title="Autocorrelation Plot"):
     plt.title(title)
     plt.show()
 
+
 def stationarity_check(data, value_col, window=12):
     """
     Check stationarity of time series data using rolling statistics.
@@ -483,9 +501,9 @@ def stationarity_check(data, value_col, window=12):
     rolstd = data[value_col].rolling(window=window).std()
 
     plt.figure(figsize=(15, 6))
-    plt.plot(data[value_col], label='Original')
-    plt.plot(rolmean, label='Rolling Mean')
-    plt.plot(rolstd, label='Rolling Std')
+    plt.plot(data[value_col], label="Original")
+    plt.plot(rolmean, label="Rolling Mean")
+    plt.plot(rolstd, label="Rolling Std")
     plt.legend()
-    plt.title('Rolling Mean & Standard Deviation')
+    plt.title("Rolling Mean & Standard Deviation")
     plt.show()

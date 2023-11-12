@@ -1,9 +1,10 @@
 import numbers
-from typing import Optional, Union, Tuple
+from typing import Optional, Tuple, Union
 
 import numpy as np
 from sklearn.base import BaseEstimator
 from sklearn.exceptions import NotFittedError
+
 
 class OutlierDetector:
     """Base class for all outlier detectors."""
@@ -30,7 +31,9 @@ class OutlierDetector:
         self._fit(x, y)
         return self
 
-    def get_outliers(self, indices: bool = False) -> Union[np.ndarray, Tuple[np.ndarray, np.ndarray]]:
+    def get_outliers(
+        self, indices: bool = False
+    ) -> Union[np.ndarray, Tuple[np.ndarray, np.ndarray]]:
         """Get indices or mask of outliers.
 
         Parameters
@@ -67,7 +70,9 @@ class RangeDetector(BaseEstimator, OutlierDetector):
         (``method="ETI"``).
     """
 
-    def __init__(self, interval_length: float = 0.5, k: float = 1.5, method: str = "ETI"):
+    def __init__(
+        self, interval_length: float = 0.5, k: float = 1.5, method: str = "ETI"
+    ):
         self.interval_length = interval_length
         self.k = k
         self.method = method

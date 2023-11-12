@@ -1,8 +1,10 @@
-import platform
 import logging
+import platform
+
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+from custom_logger import Logger
 from sklearn.metrics import (
     accuracy_score,
     classification_report,
@@ -14,15 +16,16 @@ from sklearn.metrics import (
     roc_curve,
 )
 from sklearn.model_selection import cross_val_score
-from custom_logger import Logger
 
 logger = Logger(logger_name="dh_logger", filename="dh_logs/logs.log")
+
 
 def switch_plotting_backend():
     """Switches the plotting backend based on the platform."""
     if platform.system() != "Darwin":
         plt.switch_backend("Agg")
         logger.info("Switched plotting backend to Agg.")
+
 
 def train_classifier(
     X_train: Union[pd.DataFrame, np.ndarray],

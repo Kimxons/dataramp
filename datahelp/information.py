@@ -1,5 +1,6 @@
 from __version__ import __version__
 
+
 def print_header():
     """
     Print the header information including the version and copyright details.
@@ -11,5 +12,6 @@ def print_header():
     )
 
     print(header)
+
 
 print_header()

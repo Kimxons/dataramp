@@ -2,6 +2,7 @@ import json
 import os
 from pathlib import Path
 
+
 def _get_home_path(filepath):
     """
     Helper function to get the project home path.
@@ -19,11 +20,12 @@ def _get_home_path(filepath):
         ]
         for path in paths:
             if filepath.endswith(path):
-                return str(Path(filepath).parents[len(path.split('/')) - 1])
+                return str(Path(filepath).parents[len(path.split("/")) - 1])
     except Exception as e:
         raise ValueError(f"Error in _get_home_path: {e}")
 
     return filepath
+
 
 def _get_path(dir=None):
     """
@@ -40,7 +42,9 @@ def _get_path(dir=None):
             try:
                 config = json.load(configfile)
             except json.JSONDecodeError as e:
-                raise ValueError(f"Error decoding JSON in config file {config_path}: {e}")
+                raise ValueError(
+                    f"Error decoding JSON in config file {config_path}: {e}"
+                )
 
         if dir not in config:
             raise KeyError(f"No key {dir} in config file {config_path}")

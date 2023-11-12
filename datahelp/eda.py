@@ -369,7 +369,9 @@ def join_train_and_test(data_train=None, data_test=None):
     if data_train is None or data_test is None:
         raise ValueError("Both 'data_train' and 'data_test' must be provided.")
 
-    if not isinstance(data_train, pd.DataFrame) or not isinstance(data_test, pd.DataFrame):
+    if not isinstance(data_train, pd.DataFrame) or not isinstance(
+        data_test, pd.DataFrame
+    ):
         raise TypeError("Both 'data_train' and 'data_test' should be DataFrames.")
 
     n_train = data_train.shape[0]

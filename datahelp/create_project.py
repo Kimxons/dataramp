@@ -4,9 +4,9 @@ import pickle
 from pathlib import Path
 
 import joblib
+from custom_logger import Logger
 
 from utils import _get_path
-from custom_logger import Logger
 
 __author__ = "Meshack Kitonga"
 __email__ = "dev.kitonga@gmail.com"
@@ -46,9 +46,19 @@ def create_project(project_name: str):
 
     # The project directories
     dirs = [
-        base_path, data_path, processed_path, raw_path, output_path, models_path,
-        src_path, scripts_path, ingest_path, preparation_path, modeling_path,
-        test_path, notebooks_path
+        base_path,
+        data_path,
+        processed_path,
+        raw_path,
+        output_path,
+        models_path,
+        src_path,
+        scripts_path,
+        ingest_path,
+        preparation_path,
+        modeling_path,
+        test_path,
+        notebooks_path,
     ]
 
     for directory in dirs:
@@ -113,8 +123,10 @@ def model_save(model, name="model", method="joblib"):
 
         logger.info(f"Model saved successfully to {filename}")
     except FileNotFoundError:
-        msg = f"Models folder does not exist. Saving model to the {name} folder. " \
-              f"It is recommended that you start your project using datahelp's start_project function"
+        msg = (
+            f"Models folder does not exist. Saving model to the {name} folder. "
+            f"It is recommended that you start your project using datahelp's start_project function"
+        )
         logger.info(msg)
 
         filename = f"{name}.{method}"
@@ -123,6 +135,8 @@ def model_save(model, name="model", method="joblib"):
 
         logger.info(f"Model saved successfully to {filename}")
     except PermissionError as e:
-        logger.error(f"Permission error while saving model. Check file permissions. {e}")
+        logger.error(
+            f"Permission error while saving model. Check file permissions. {e}"
+        )
     except Exception as e:
         logger.error(f"Failed to save model due to {e}")
