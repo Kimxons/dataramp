@@ -6,12 +6,14 @@ from datahelp.__version__ import __version__
 from setuptools import find_packages, setup
 
 directory = os.path.abspath(os.path.dirname(__file__))
-with open(os.path.join(directory, 'README.md'), encoding='utf-8') as f:
+with open(os.path.join(directory, "README.md"), encoding="utf-8") as f:
     long_description = f.read()
+
 
 setup(
     name="datahelp",
-    version=__version__,
+    use_scm_version=True,
+    setup_requires=["setuptools_scm"],
     license="MIT",
     description="Data science library for data science / data analysis teams",
     long_description=long_description,
@@ -19,7 +21,8 @@ setup(
     author="Meshack Kitonga",
     author_email="dev.kitonga@gmail.com",
     url="https://github.com/kimxons/datahelp",
-    packages=find_packages(),
+    packages=find_packages(where="datahelp"),
+    package_dir={"": "datahelp"},
     install_requires=[
         "pandas",
         "scikit-learn",
