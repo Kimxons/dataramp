@@ -1,10 +1,8 @@
 import platform
-from typing import List, Optional, Union
-
+import logging
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import seaborn as sns
 from sklearn.metrics import (
     accuracy_score,
     classification_report,
@@ -16,12 +14,15 @@ from sklearn.metrics import (
     roc_curve,
 )
 from sklearn.model_selection import cross_val_score
+from custom_logger import Logger
 
-if platform.system() == "Darwin":
-    plt.switch_backend()
-else:
-    plt.switch_backend("Agg")
+logger = Logger(logger_name="dh_logger", filename="dh_logs/logs.log")
 
+def switch_plotting_backend():
+    """Switches the plotting backend based on the platform."""
+    if platform.system() != "Darwin":
+        plt.switch_backend("Agg")
+        logger.info("Switched plotting backend to Agg.")
 
 def train_classifier(
     X_train: Union[pd.DataFrame, np.ndarray],
@@ -47,11 +48,12 @@ def train_classifier(
     Returns:
         dict: A dictionary containing various classification metrics.
     """
-    # Check for None inputs
     if any(arg is None for arg in [X_train, y_train, X_val, y_val]):
         raise ValueError("Some input arguments are None.")
 
     result_dict = {}
+
+    switch_plotting_backend()
 
     if cross_validate:
         scorers = [
@@ -67,7 +69,7 @@ def train_classifier(
             )
             mean_score, std_score = cv_score.mean(), cv_score.std()
             result_dict[metric_name] = {"mean": mean_score, "std": std_score}
-            print(f"{metric_name}: {mean_score:.4f} +/- {std_score:.4f}")
+            logger.info(f"{metric_name}: {mean_score:.4f} +/- {std_score:.4f}")
     else:
         estimator.fit(X_train, y_train)
         y_pred = estimator.predict(X_val)
@@ -77,8 +79,8 @@ def train_classifier(
         result_dict["classification_report"] = classification_rep
         result_dict["confusion_matrix"] = confusion_mat
 
-        print(classification_report(y_val, y_pred))
-        print(f"Confusion Matrix:\n {confusion_mat}")
+        logger.info(classification_report(y_val, y_pred))
+        logger.info(f"Confusion Matrix:\n {confusion_mat}")
 
         # ROC plot
         if hasattr(estimator, "predict_proba"):
@@ -98,54 +100,3 @@ def train_classifier(
             result_dict["roc_auc"] = roc_auc
 
     return result_dict
-
-
-def plot_feature_importance(
-    estimator: object, feature_names: List[str], show_plot: bool = True
-) -> Optional[plt.Figure]:
-    """
-    Plots the feature importance from a trained scikit-learn estimator
-    as a bar chart.
-
-    Parameters:
-    -----------
-    estimator : scikit-learn estimator
-        A fitted estimator that has a `feature_importances_` attribute.
-    feature_names : list of str
-        The names of the columns in the same order as the feature importances.
-    show_plot : bool, optional (default=True)
-        Whether to display the plot immediately.
-
-    Returns:
-    --------
-    fig : matplotlib Figure or None
-        The figure object containing the plot or None if show_plot is False.
-    """
-    if not hasattr(estimator, "feature_importances_"):
-        raise ValueError(
-            "The estimator does not have a 'feature_importances_' attribute."
-        )
-    if (
-        not isinstance(feature_names, list)
-        or len(feature_names) != estimator.n_features_
-    ):
-        raise ValueError(
-            "The 'feature_names' argument should be a list of the same length as the number of features."
-        )
-
-    feature_importances = estimator.feature_importances_
-    feature_importances_df = pd.DataFrame(
-        {"feature": feature_names, "importance": feature_importances}
-    )
-    feature_importances_df = feature_importances_df.sort_values(
-        by="importance", ascending=False
-    )
-
-    fig, ax = plt.subplots()
-    sns.barplot(x="importance", y="feature", data=feature_importances_df, ax=ax)
-    ax.set_title("Feature importance plot")
-
-    if show_plot:
-        plt.show()
-    else:
-        return fig

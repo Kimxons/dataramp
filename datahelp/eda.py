@@ -36,6 +36,7 @@ def get_num_vars(df: Union[pd.DataFrame, pd.Series]) -> None:
 
     return num_vars
 
+
 def describe_df(df: Union[pd.DataFrame, pd.Series]) -> pd.DataFrame:
     """
     Describes a DataFrame or Series and returns a DataFrame with the descriptions.
@@ -61,7 +62,7 @@ def describe_df(df: Union[pd.DataFrame, pd.Series]) -> pd.DataFrame:
     ) as pbar:
         # Handle numerical features
         numeric_descr = [
-            df[col].describe().apply('{0:.3f}'.format)
+            df[col].describe().apply("{0:.3f}".format)
             for col in df.select_dtypes(include=np.number).columns
         ]
         # Handle categorical features
@@ -76,6 +77,7 @@ def describe_df(df: Union[pd.DataFrame, pd.Series]) -> pd.DataFrame:
     result_df = pd.concat(descr, axis=1)
 
     return result_df
+
 
 def get_cat_vars(df: Union[pd.DataFrame, pd.Series]) -> list:
     """
@@ -97,6 +99,7 @@ def get_cat_vars(df: Union[pd.DataFrame, pd.Series]) -> list:
     cat_vars = df.select_dtypes(include="object").columns.tolist()
 
     return cat_vars
+
 
 def get_cat_counts(df: Union[pd.DataFrame, pd.Series]) -> pd.DataFrame:
     """
@@ -120,47 +123,60 @@ def get_cat_counts(df: Union[pd.DataFrame, pd.Series]) -> pd.DataFrame:
     )
 
 
-def plot_feature_importance(vi: np.ndarray, feature_names: list) -> None:
+def plot_feature_importance(
+    estimator: object, feature_names: List[str], show_plot: bool = True
+) -> Optional[plt.Figure]:
     """
-    Plots the feature importance as a bar chart.
+    Plots the feature importance from a trained scikit-learn estimator
+    as a bar chart.
 
     Parameters:
     -----------
-    vi : numpy ndarray
-        The feature importance values from a trained model.
-        Should be a 1-dimensional array.
+    estimator : scikit-learn estimator
+        A fitted estimator that has a `feature_importances_` attribute.
     feature_names : list of str
-        The names of the features in the same order as the vi.
+        The names of the columns in the same order as the feature importances.
+    show_plot : bool, optional (default=True)
+        Whether to display the plot immediately.
 
     Returns:
     --------
-    None
+    fig : matplotlib Figure or None
+        The figure object containing the plot or None if show_plot is False.
     """
-    # Check input types
-    if not isinstance(vi, np.ndarray) or not isinstance(feature_names, list):
-        raise TypeError("vi should be a numpy ndarray and feature_names should be a list.")
+    if not hasattr(estimator, "feature_importances_"):
+        raise ValueError(
+            "The estimator does not have a 'feature_importances_' attribute."
+        )
+    if (
+        not isinstance(feature_names, list)
+        or len(feature_names) != estimator.n_features_
+    ):
+        raise ValueError(
+            "The 'feature_names' argument should be a list of the same length as the number of features."
+        )
 
-    # Check length mismatch
-    if len(vi) != len(feature_names):
-        raise ValueError(f"Length mismatch: expected {len(feature_names)}, got {len(vi)}.")
+    feature_importances = estimator.feature_importances_
+    feature_importances_df = pd.DataFrame(
+        {"feature": feature_names, "importance": feature_importances}
+    )
+    feature_importances_df = feature_importances_df.sort_values(
+        by="importance", ascending=False
+    )
 
-    # Sort indices
-    sorted_indices = vi.argsort()[::-1]
+    fig, ax = plt.subplots()
+    sns.barplot(x="importance", y="feature", data=feature_importances_df, ax=ax)
+    ax.set_title("Feature importance plot")
 
-    # Plot
-    plt.figure(figsize=(10, 6))
-    plt.bar(range(len(vi)), vi[sorted_indices], color='skyblue')
-    plt.xticks(range(len(vi)), np.array(feature_names)[sorted_indices], rotation=90)
-    plt.xlabel("Feature", fontsize=12)
-    plt.ylabel("Importance", fontsize=12)
-    plt.title("Feature Importance", fontsize=14)
-    plt.grid(axis='y', linestyle='--', alpha=0.7)
-    plt.show()
+    if show_plot:
+        plt.show()
+    else:
+        return fig
 
 
 def feature_summary(
     df: Union[pd.DataFrame, pd.Series], visualize: bool = False
-) -> None:
+) -> pd.DataFrame:
     """
     Provides a summary of the features in a pandas DataFrame.
 
@@ -198,21 +214,19 @@ def feature_summary(
     )
 
     for col in df.columns:
-        if df[col].dtype == "category":
-            summary_df.at[col, "Unique_Count"] = df[col].value_counts().count()
+        if pd.api.types.is_categorical_dtype(df[col]):
+            summary_df.at[col, "Unique_Count"] = df[col].nunique()
             summary_df.at[col, "Data_type"] = "categorical"
         else:
             summary_df.at[col, "Unique_Count"] = df[col].nunique()
-            summary_df.at[col, "Data_type"] = str(
-                df[col].dtype
-            )  # Use str(df[col].dtype)
-            summary_df.at[col, "Max"] = df[col].max()  # Remove .astype(str)
-            summary_df.at[col, "Min"] = df[col].min()  # Remove .astype(str)
+            summary_df.at[col, "Data_type"] = str(df[col].dtype)
+            summary_df.at[col, "Max"] = df[col].max()
+            summary_df.at[col, "Min"] = df[col].min()
             summary_df.at[col, "Mean"] = df[col].mean()
             summary_df.at[col, "Std"] = df[col].std()
             summary_df.at[col, "Skewness"] = df[col].skew()
 
-            if visualize and df[col].dtype.name in ["int64", "float64"]:
+            if visualize and pd.api.types.is_numeric_dtype(df[col]):
                 fig, ax = plt.subplots(1, 2, figsize=(10, 5))
                 ax[0].hist(df[col])
                 ax[0].set_xlabel(col)
@@ -220,7 +234,7 @@ def feature_summary(
                 ax[1].boxplot(df[col], vert=False)
                 ax[1].set_xlabel(col)
                 plt.show()
-            elif visualize and df[col].dtype.name == "category":
+            elif visualize and pd.api.types.is_categorical_dtype(df[col]):
                 fig, ax = plt.subplots(1, 1, figsize=(10, 5))
                 df[col].value_counts().plot(kind="bar", ax=ax)
                 ax.set_xlabel(col)
@@ -263,10 +277,10 @@ def display_missing(
 
     """
     if df is None:
-        raise ValueError("Expected a pandas Dataframe, but got None")
+        raise ValueError("Expected a pandas DataFrame, but got None")
 
     if not isinstance(df, pd.DataFrame):
-        raise TypeError("data must be a pandas DataFrame")
+        raise TypeError("df must be a pandas DataFrame")
 
     dfs = (
         df.isna()
@@ -285,6 +299,7 @@ def display_missing(
     else:
         dfs = dfs.sort_values(by="missing_count", ascending=ascending)
 
+    # Display heatmap if plot=True
     if plot:
         plt.figure(figsize=(12, 6))
         plt.title("Missing Values Heatmap")
@@ -335,15 +350,15 @@ def join_train_and_test(data_train=None, data_test=None):
 
     Parameters:
     ----------
-    data_train: DataFrame
+    data_train: pd.DataFrame
         First dataset, usually called "train_data", to join.
 
-    data_test: DataFrame
+    data_test: pd.DataFrame
         Second dataset, usually called "test_data", to join.
 
     Returns:
     -------
-    DataFrame
+    pd.DataFrame
         Merged data containing both train and test sets.
     int
         Number of rows in the train set.
@@ -354,14 +369,12 @@ def join_train_and_test(data_train=None, data_test=None):
     if data_train is None or data_test is None:
         raise ValueError("Both 'data_train' and 'data_test' must be provided.")
 
-    if not isinstance(data_train, pd.DataFrame) or not isinstance(
-        data_test, pd.DataFrame
-    ):
+    if not isinstance(data_train, pd.DataFrame) or not isinstance(data_test, pd.DataFrame):
         raise TypeError("Both 'data_train' and 'data_test' should be DataFrames.")
 
     n_train = data_train.shape[0]
     n_test = data_test.shape[0]
-    all_data = pd.concat([data_train, data_test], sort=False).reset_index(drop=True)
+    all_data = pd.concat([data_train, data_test], ignore_index=True, sort=False)
 
     return all_data, n_train, n_test
 
@@ -373,10 +386,10 @@ def check_train_test_set(train_data, test_data, index=None, col=None):
 
     Parameters:
     -------------------
-    train_data: DataFrame
+    train_data: pd.DataFrame
         The train dataset.
 
-    test_data: DataFrame
+    test_data: pd.DataFrame
         The test dataset.
 
     index: str, Default None
@@ -388,37 +401,38 @@ def check_train_test_set(train_data, test_data, index=None, col=None):
 
     if index:
         if train_data[index].nunique() == train_data.shape[0]:
-            print("Id field is unique.")
+            print("ID field is unique in the training set.")
         else:
-            print("Id field is not unique")
+            print("ID field is not unique in the training set.")
 
         if len(np.intersect1d(train_data[index].values, test_data[index].values)) == 0:
-            print("Train and test sets have distinct Ids.")
+            print("Train and test sets have distinct IDs.")
         else:
-            print("Train and test sets IDs are the same.")
+            print("Train and test sets share some IDs.")
 
         print("\n")
-        plt.plot(train_data.groupby(col).count()[[index]], "o-", label="train")
-        plt.plot(test_data.groupby(col).count()[[index]], "o-", label="test")
+        plt.plot(train_data.groupby(col).count()[[index]], "o-", label="Train")
+        plt.plot(test_data.groupby(col).count()[[index]], "o-", label="Test")
         plt.title("Train and test instances overlap.")
-        plt.legend(loc=0)
+        plt.legend(loc="best")
+        plt.xlabel(col)
         plt.ylabel("Number of records")
         plt.show()
 
 
 def is_df(obj):
-    r"""Returns True if `obj` is a pandas dataFrame
-    Note that this function is simply doing ```isinstance(obj, df)```
-    Using that ``isinstance`` check is better for typechecking with mypy,
-    and more explicit - so it's recommended to use that instead of
-    ``is_df``.
+    """
+    Returns True if `obj` is a pandas DataFrame.
+    Note that this function is simply doing `isinstance(obj, pd.DataFrame)`.
+    Using that `isinstance` check is better for typechecking with mypy,
+    and more explicit - so it's recommended to use that instead of `is_df`.
 
      Args:
         obj (Object): Object to test
     Example::
 
-        >>> x = pd.df()
-        >>> torch.is_df(x)
+        >>> x = pd.DataFrame()
+        >>> is_df(x)
         True
     """
-    return isinstance(obj, df)
+    return isinstance(obj, pd.DataFrame)

@@ -37,8 +37,61 @@ def extract_date_info(data=None, date_cols=None, subset=None, drop=True):
     --------
     DataFrame or Series.
     """
-    # Function implementation remains unchanged
-    pass
+    if data is None or date_cols is None:
+        raise ValueError("Both 'data' and 'date_cols' must be provided.")
+
+    if not isinstance(data, (pd.DataFrame, pd.Series)):
+        raise TypeError("data must be a pandas DataFrame or Series.")
+
+    if not isinstance(date_cols, list):
+        raise TypeError("date_cols must be a list.")
+
+    if not date_cols:
+        raise ValueError("date_cols must not be an empty list.")
+
+    if subset is None:
+        subset = ['dow', 'doy', 'dom', 'hr', 'min', 'is_wkd', 'yr', 'qtr', 'mth']
+
+    if not set(subset).issubset(['dow', 'doy', 'dom', 'hr', 'min', 'is_wkd', 'yr', 'qtr', 'mth']):
+        raise ValueError("Invalid values in the 'subset' parameter.")
+
+    for col in date_cols:
+        if col not in data.columns:
+            raise ValueError(f"{col} not found in the DataFrame.")
+
+    df = data.copy()
+
+    if 'dow' in subset:
+        df['dow'] = df[date_cols].dt.dayofweek
+
+    if 'doy' in subset:
+        df['doy'] = df[date_cols].dt.dayofyear
+
+    if 'dom' in subset:
+        df['dom'] = df[date_cols].dt.day
+
+    if 'hr' in subset:
+        df['hr'] = df[date_cols].dt.hour
+
+    if 'min' in subset:
+        df['min'] = df[date_cols].dt.minute
+
+    if 'is_wkd' in subset:
+        df['is_wkd'] = df[date_cols].dt.dayofweek < 5
+
+    if 'yr' in subset:
+        df['yr'] = df[date_cols].dt.year
+
+    if 'qtr' in subset:
+        df['qtr'] = df[date_cols].dt.quarter
+
+    if 'mth' in subset:
+        df['mth'] = df[date_cols].dt.month
+
+    if drop:
+        df.drop(date_cols, axis=1, inplace=True)
+
+    return df
 
 
 def extract_time_info(data=None, time_cols=None, subset=None, drop=True):
@@ -65,8 +118,43 @@ def extract_time_info(data=None, time_cols=None, subset=None, drop=True):
     --------
     DataFrame or Series.
     """
-    # Function implementation remains unchanged
-    pass
+    if data is None or time_cols is None:
+        raise ValueError("Both 'data' and 'time_cols' must be provided.")
+
+    if not isinstance(data, (pd.DataFrame, pd.Series)):
+        raise TypeError("data must be a pandas DataFrame or Series.")
+
+    if not isinstance(time_cols, list):
+        raise TypeError("time_cols must be a list.")
+
+    if not time_cols:
+        raise ValueError("time_cols must not be an empty list.")
+
+    if subset is None:
+        subset = ['hours', 'minutes', 'seconds']
+
+    if not set(subset).issubset(['hours', 'minutes', 'seconds']):
+        raise ValueError("Invalid values in the 'subset' parameter.")
+
+    for col in time_cols:
+        if col not in data.columns:
+            raise ValueError(f"{col} not found in the DataFrame.")
+
+    df = data.copy()
+
+    if 'hours' in subset:
+        df['hours'] = df[time_cols].dt.hour
+
+    if 'minutes' in subset:
+        df['minutes'] = df[time_cols].dt.minute
+
+    if 'seconds' in subset:
+        df['seconds'] = df[time_cols].dt.second
+
+    if drop:
+        df.drop(time_cols, axis=1, inplace=True)
+
+    return df
 
 
 def get_time_elapsed(data=None, date_cols=None, by="s", col_name=None):
@@ -93,8 +181,32 @@ def get_time_elapsed(data=None, date_cols=None, by="s", col_name=None):
     --------
     Pandas DataFrame with a new column for elapsed time.
     """
-    # Function implementation remains unchanged
-    pass
+    if data is None or date_cols is None:
+        raise ValueError("Both 'data' and 'date_cols' must be provided.")
+
+    if not isinstance(data, (pd.DataFrame, pd.Series)):
+        raise TypeError("data must be a pandas DataFrame or Series.")
+
+    if not isinstance(date_cols, list):
+        raise TypeError("date_cols must be a list.")
+
+    if len(date_cols) != 2:
+        raise ValueError("Exactly two date columns are required.")
+
+    if col_name is None:
+        raise ValueError("col_name must be provided.")
+
+    for col in date_cols:
+        if col not in data.columns:
+            raise ValueError(f"{col} not found in the DataFrame.")
+
+    if by not in ['h', 'm', 's']:
+        raise ValueError("Invalid value for 'by'. It should be one of ['h', 'm', 's'].")
+
+    df = data.copy()
+    df[col_name] = (df[date_cols[1]] - df[date_cols[0]]).astype('timedelta64[{}]'.format(by))
+
+    return df
 
 
 def get_period_of_day(date_col=None):
@@ -112,23 +224,14 @@ def get_period_of_day(date_col=None):
     ----------
     Series of mapped values.
     """
-
-    def _map_hours(x):
-        if x in [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]:
-            return "morning"
-        elif x in [13, 14, 15, 16]:
-            return "afternoon"
-        else:
-            return "evening"
-
     if date_col is None:
-        raise ValueError("date_cols: Expect a date column, got 'None'")
+        raise ValueError("date_col: Expecting a date column, got 'None'")
 
     if date_col.dtype != np.int:
         date_col_hr = pd.to_datetime(date_col).dt.hour
-        return date_col_hr.map(_map_hours)
+        return date_col_hr.map(lambda x: "morning" if x in range(13) else ("afternoon" if x in range(13, 17) else "evening"))
     else:
-        return date_col.map(_map_hours)
+        return date_col.map(lambda x: "morning" if x in range(13) else ("afternoon" if x in range(13, 17) else "evening"))
 
 
 def describe_date(data=None, date_col=None):
@@ -143,13 +246,16 @@ def describe_date(data=None, date_col=None):
     date_col: str.
         Name of the date column to describe.
     """
-    if data is None:
-        raise ValueError("data: Expecting a DataFrame or Series, got 'None'")
+    if data is None or date_col is None:
+        raise ValueError("Both 'data' and 'date_col' must be provided.")
 
-    if date_col is None:
-        raise ValueError("date_col: Expecting a string, got 'None'")
+    if not isinstance(data, (pd.DataFrame, pd.Series)):
+        raise TypeError("data must be a pandas DataFrame or Series.")
 
-    df = extract_date_info(data, date_col)
+    if date_col not in data.columns:
+        raise ValueError(f"{date_col} not found in the DataFrame.")
+
+    df = extract_date_info(data, [date_col])
     print(df.describe())
 
 
@@ -198,18 +304,19 @@ def timeplot(
     --------
     Matplotlib figure.
     """
-    if data is None:
-        raise ValueError("data: Expecting a DataFrame or Series, got 'None'")
+    if data is None or time_col is None:
+        raise ValueError("Both 'data' and 'time_col' must be provided.")
+
+    if not isinstance(data, (pd.DataFrame, pd.Series)):
+        raise TypeError("data must be a pandas DataFrame or Series.")
+
+    if time_col not in data.columns:
+        raise ValueError(f"{time_col} not found in the DataFrame.")
 
     if num_cols is None:
         num_cols = get_num_vars(data)
-        # Remove the time_Col from num_cols
+        # Remove the time_col from num_cols
         num_cols.remove(time_col)
-
-    if time_col is None:
-        raise ValueError(
-            "time_col: Expecting a string name of the time column, got 'None'"
-        )
 
     # Make time_col the index
     data[time_col] = pd.to_datetime(data[time_col])
@@ -229,7 +336,7 @@ def timeplot(
             ax.set_title("Timeseries Plot of '{}'".format(time_col))
             if save_fig:
                 plt.savefig("fig_timeseries_plot_against_{}".format(feature))
-            plt.show()
+        plt.show()
     else:
         for feature in num_cols:
             fig = plt.figure()
@@ -265,7 +372,120 @@ def set_date_index(data, date_col):
     --------
     DataFrame with the date column as the index.
     """
-    # Make time_col the index
     data[date_col] = pd.to_datetime(data[date_col])
-    # Set time_col as DataFrame index
     return data.set_index(date_col)
+
+def plot_time_series(data, time_col, value_cols, figsize=(15, 8), title="Time Series Plot"):
+    """
+    Plot time series data.
+
+    Parameters:
+    -----------
+    data: DataFrame.
+        The time series data.
+
+    time_col: str.
+        The name of the time column.
+
+    value_cols: list.
+        List of column names containing values to be plotted.
+
+    figsize: tuple, Default (15, 8).
+        The figure size of the plot.
+
+    title: str, Default "Time Series Plot".
+        The title of the plot.
+
+    Returns:
+    --------
+    Matplotlib figure.
+    """
+    data.set_index(time_col)[value_cols].plot(figsize=figsize)
+    plt.title(title)
+    plt.xlabel(time_col)
+    plt.ylabel("Values")
+    plt.show()
+
+def plot_seasonal_decomposition(data, time_col, value_col, freq=None):
+    """
+    Plot seasonal decomposition of time series data.
+
+    Parameters:
+    -----------
+    data: DataFrame.
+        The time series data.
+
+    time_col: str.
+        The name of the time column.
+
+    value_col: str.
+        The name of the column containing values to be decomposed.
+
+    freq: int, Default None.
+        The frequency of the time series. If not provided, it will be inferred.
+
+    Returns:
+    --------
+    Matplotlib figure.
+    """
+    from statsmodels.tsa.seasonal import seasonal_decompose
+
+    result = seasonal_decompose(data[value_col], freq=freq, model='additive')
+    result.plot()
+    plt.suptitle("Seasonal Decomposition of {}".format(value_col))
+    plt.show()
+
+def autocorrelation_plot(data, value_col, title="Autocorrelation Plot"):
+    """
+    Plot autocorrelation of time series data.
+
+    Parameters:
+    -----------
+    data: DataFrame.
+        The time series data.
+
+    value_col: str.
+        The name of the column containing values.
+
+    title: str, Default "Autocorrelation Plot".
+        The title of the plot.
+
+    Returns:
+    --------
+    Matplotlib figure.
+    """
+    from pandas.plotting import autocorrelation_plot
+
+    autocorrelation_plot(data[value_col])
+    plt.title(title)
+    plt.show()
+
+def stationarity_check(data, value_col, window=12):
+    """
+    Check stationarity of time series data using rolling statistics.
+
+    Parameters:
+    -----------
+    data: DataFrame.
+        The time series data.
+
+    value_col: str.
+        The name of the column containing values.
+
+    window: int, Default 12.
+        The size of the rolling window.
+
+    Returns:
+    --------
+    Matplotlib figure.
+    """
+    rolmean = data[value_col].rolling(window=window).mean()
+    rolstd = data[value_col].rolling(window=window).std()
+
+    plt.figure(figsize=(15, 6))
+    plt.plot(data[value_col], label='Original')
+    plt.plot(rolmean, label='Rolling Mean')
+    plt.plot(rolstd, label='Rolling Std')
+    plt.legend()
+    plt.title('Rolling Mean & Standard Deviation')
+    plt.show()
