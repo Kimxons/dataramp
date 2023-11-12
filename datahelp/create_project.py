@@ -1,4 +1,3 @@
-import argparse
 import json
 import os
 import pickle
@@ -6,9 +5,7 @@ from pathlib import Path
 
 import joblib
 
-# import tensorflow as tf
 from utils import _get_path
-
 from custom_logger import Logger
 
 __author__ = "Meshack Kitonga"
@@ -18,7 +15,7 @@ logger = Logger(logger_name="dh_logger", filename="dh_logs/logs.log")
 
 
 def create_directory(path: Path):
-    """Create a directory if it does not exist already"""
+    """Create a directory if it does not exist already."""
     path.mkdir(parents=True, exist_ok=True)
 
 
@@ -27,7 +24,7 @@ def create_project(project_name: str):
     Creates a standard data science project directory structure.
 
     Parameters:
-        project_name (str): Name of directory to contain folders.
+        project_name (str): Name of the directory to contain folders.
 
     Returns:
         None
@@ -68,10 +65,12 @@ def create_project(project_name: str):
         "modelspath": str(models_path),
     }
 
-    with open(base_path / ".datahelprc", "w") as config_file:
+    config_path = base_path / ".datahelprc"
+    with open(config_path, "w") as config_file:
         json.dump(config, config_file, indent=4)
 
-    with open(base_path / "README.txt", "w") as readme:
+    readme_path = base_path / "README.txt"
+    with open(readme_path, "w") as readme:
         readme.write("Creates a standard data science project directory structure.")
 
     logger.info(f"Project created successfully in {base_path}")
@@ -105,9 +104,9 @@ def model_save(model, name="model", method="joblib"):
         raise ValueError(
             f"Method {method} not supported. Supported methods are: {list(SUPPORTED_METHODS.keys())}"
         )
+
     try:
         model_path = _get_path("modelpath")
-
         filename = f"{model_path}/{name}.{method}"
 
         SUPPORTED_METHODS[method](model, filename)
@@ -123,5 +122,7 @@ def model_save(model, name="model", method="joblib"):
         SUPPORTED_METHODS[method](model, filename)
 
         logger.info(f"Model saved successfully to {filename}")
+    except PermissionError as e:
+        logger.error(f"Permission error while saving model. Check file permissions. {e}")
     except Exception as e:
         logger.error(f"Failed to save model due to {e}")

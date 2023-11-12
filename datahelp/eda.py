@@ -127,7 +127,8 @@ def plot_feature_importance(vi: np.ndarray, feature_names: list) -> None:
     Parameters:
     -----------
     vi : numpy ndarray
-        The feature vi from a trained model.
+        The feature importance values from a trained model.
+        Should be a 1-dimensional array.
     feature_names : list of str
         The names of the features in the same order as the vi.
 
@@ -135,20 +136,25 @@ def plot_feature_importance(vi: np.ndarray, feature_names: list) -> None:
     --------
     None
     """
+    # Check input types
     if not isinstance(vi, np.ndarray) or not isinstance(feature_names, list):
-        raise TypeError(
-            "vi should be a numpy ndarray and feature_names should be a list."
-        )
+        raise TypeError("vi should be a numpy ndarray and feature_names should be a list.")
 
+    # Check length mismatch
     if len(vi) != len(feature_names):
-        raise ValueError("vi and feature_names should have the same length.")
+        raise ValueError(f"Length mismatch: expected {len(feature_names)}, got {len(vi)}.")
 
+    # Sort indices
     sorted_indices = vi.argsort()[::-1]
-    plt.bar(range(len(vi)), vi[sorted_indices])
+
+    # Plot
+    plt.figure(figsize=(10, 6))
+    plt.bar(range(len(vi)), vi[sorted_indices], color='skyblue')
     plt.xticks(range(len(vi)), np.array(feature_names)[sorted_indices], rotation=90)
-    plt.xlabel("Feature")
-    plt.ylabel("Importance")
-    plt.title("Feature vi")
+    plt.xlabel("Feature", fontsize=12)
+    plt.ylabel("Importance", fontsize=12)
+    plt.title("Feature Importance", fontsize=14)
+    plt.grid(axis='y', linestyle='--', alpha=0.7)
     plt.show()
 
 

@@ -4,7 +4,7 @@ from typing import List, Optional, Union
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import seaborn as sns 
+import seaborn as sns
 from sklearn.metrics import (
     accuracy_score,
     classification_report,
@@ -31,7 +31,7 @@ def train_classifier(
     y_val: Optional[Union[pd.Series, np.ndarray]] = None,
     cross_validate: bool = False,
     cv: int = 5,
-) -> None:
+) -> dict:
     """
     Train a classification estimator and calculate numerous performance metrics.
 
@@ -45,11 +45,13 @@ def train_classifier(
         cv: Number of folds to use in cross-validation.
 
     Returns:
-        None
+        dict: A dictionary containing various classification metrics.
     """
     # Check for None inputs
     if any(arg is None for arg in [X_train, y_train, X_val, y_val]):
         raise ValueError("Some input arguments are None.")
+
+    result_dict = {}
 
     if cross_validate:
         scorers = [
@@ -63,12 +65,20 @@ def train_classifier(
             cv_score = cross_val_score(
                 estimator, X_train, y_train, scoring=scorer, cv=cv
             )
-            print(f"{metric_name}: {cv_score.mean():.4f} +/- {cv_score.std():.4f}")
+            mean_score, std_score = cv_score.mean(), cv_score.std()
+            result_dict[metric_name] = {"mean": mean_score, "std": std_score}
+            print(f"{metric_name}: {mean_score:.4f} +/- {std_score:.4f}")
     else:
         estimator.fit(X_train, y_train)
         y_pred = estimator.predict(X_val)
+        classification_rep = classification_report(y_val, y_pred, output_dict=True)
+        confusion_mat = confusion_matrix(y_val, y_pred)
+
+        result_dict["classification_report"] = classification_rep
+        result_dict["confusion_matrix"] = confusion_mat
+
         print(classification_report(y_val, y_pred))
-        print(f"Confusion Matrix:\n {confusion_matrix(y_val, y_pred)}")
+        print(f"Confusion Matrix:\n {confusion_mat}")
 
         # ROC plot
         if hasattr(estimator, "predict_proba"):
@@ -85,10 +95,16 @@ def train_classifier(
             plt.title("Receiver Operating Characteristic Curve")
             plt.legend()
 
+            result_dict["roc_auc"] = roc_auc
 
-def plot_feature_importance(estimator: object, feature_names: List[str]) -> plt.Figure:
+    return result_dict
+
+
+def plot_feature_importance(
+    estimator: object, feature_names: List[str], show_plot: bool = True
+) -> Optional[plt.Figure]:
     """
-    Plots the feature importance from a trained scikit learn estimator
+    Plots the feature importance from a trained scikit-learn estimator
     as a bar chart.
 
     Parameters:
@@ -97,13 +113,14 @@ def plot_feature_importance(estimator: object, feature_names: List[str]) -> plt.
         A fitted estimator that has a `feature_importances_` attribute.
     feature_names : list of str
         The names of the columns in the same order as the feature importances.
+    show_plot : bool, optional (default=True)
+        Whether to display the plot immediately.
 
     Returns:
     --------
-    fig : matplotlib Figure
-        The figure object containing the plot.
+    fig : matplotlib Figure or None
+        The figure object containing the plot or None if show_plot is False.
     """
-
     if not hasattr(estimator, "feature_importances_"):
         raise ValueError(
             "The estimator does not have a 'feature_importances_' attribute."
@@ -128,4 +145,7 @@ def plot_feature_importance(estimator: object, feature_names: List[str]) -> plt.
     sns.barplot(x="importance", y="feature", data=feature_importances_df, ax=ax)
     ax.set_title("Feature importance plot")
 
-    return fig
+    if show_plot:
+        plt.show()
+    else:
+        return fig
