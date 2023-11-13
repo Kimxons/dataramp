@@ -12,7 +12,7 @@ with open(os.path.join(directory, "README.md"), encoding="utf-8") as f:
 
 setup(
     name="datahelp",
-    use_scm_version=True,
+    use_scm_version={"version_scheme": "guess-next-dev", "local_scheme": "dirty-tag"},
     setup_requires=["setuptools_scm"],
     license="MIT",
     description="Data science library for data science / data analysis teams",
