@@ -1,17 +1,9 @@
 #!/bin/bash -e
 
-python3 -m venv venv
-source venv/bin/activate
+poetry install
 
-pip install wheel setuptools twine
-python3 setup.py clean
+poetry build
 
-rm -rf dist
+poetry publish --build
 
-python3 setup.py sdist bdist_wheel
-
-twine upload dist/*
-
-deactivate
-
-rm -rf venv
+poetry env remove
