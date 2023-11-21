@@ -3,8 +3,12 @@ name = "datahelp"
 version = "0.1.0"
 description = "Data science library for data science / data analysis teams"
 authors = ["kimxons <kitongameshack9@gmail.com>"]
+maintainers = ["kimxons <kitongameshack9@gmail.com>"]
 license = "MIT"
 readme = "README.md"
+homepage = "https://github.com/datahelp/"
+repository = "https://github.com/datahelp"
+documentation = "https://github.com/datahelp"
 
 [tool.poetry.dependencies]
 python = "^3.9"
@@ -28,3 +32,13 @@ nltk = "^3.8.1"
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
+
+[tool.poetry.metadata]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3.9",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3",
+]
