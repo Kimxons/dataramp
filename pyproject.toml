@@ -29,16 +29,14 @@ matplotlib = "^3.8.2"
 seaborn = "^0.13.0"
 nltk = "^3.8.1"
 
-[build-system]
-requires = ["poetry-core"]
-build-backend = "poetry.core.masonry.api"
-
-[tool.poetry.metadata]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
     "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3.9",
-    "Intended Audience :: Developers",
     "Programming Language :: Python :: 3",
 ]
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
