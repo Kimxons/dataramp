@@ -1,4 +1,3 @@
-import logging
 import platform
 
 import matplotlib.pyplot as plt

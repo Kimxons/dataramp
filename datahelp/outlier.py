@@ -1,5 +1,5 @@
 import numbers
-from typing import Optional, Tuple, Union
+from typing import Tuple, Union
 
 import numpy as np
 from sklearn.base import BaseEstimator

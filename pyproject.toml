@@ -4,12 +4,8 @@ version = "0.1.0"
 description = "Data science library for data science / data analysis teams"
 authors = ["kimxons <kitongameshack9@gmail.com>"]
 
-[tool.poetry.license]
-file = "LICENSE"
-
-[tool.poetry.readme]
-file = "README.md"
-content-type = "text/markdown"
+license = "LICENSE"
+readme = "README.md"
 
 homepage = "https://github.com/Kimxons/datahelp/"
 repository = "https://github.com/Kimxons/datahelp/"
@@ -35,5 +31,7 @@ seaborn = "^0.13.0"
 nltk = "^3.8.1"
 
 [build-system]
-requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
+requires = [
+  "poetry-core",
+]

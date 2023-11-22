@@ -1,11 +1,10 @@
-#!/bin/sh
+#!/bin/bash
 
 set -ex
 
 black --version  # 22.6.0 (on Python 3.9)
 usort --version  # 1.0.4
 flake8 --version  # 5.0.4
-
 
 usort format datahelp
 usort format tests
@@ -49,7 +48,9 @@ elif [[ "$#" -eq  0 ]]
 then
   CHECK_ALL=false
 else
-  echo "Usage: ./lint.sh [all]"
+  # echo "Usage: "
+  # echo "   chmod +x lint.sh"
+  echo "   ./lint.sh [all]"
   exit 1
 fi
 
