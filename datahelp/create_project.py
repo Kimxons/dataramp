@@ -9,7 +9,7 @@ from custom_logger import Logger
 from utils import _get_path
 
 __author__ = "Meshack Kitonga"
-__email__ = "dev.kitonga@gmail.com"
+__email__ = "kitongameshack9@gmail.com"
 
 logger = Logger(logger_name="dh_logger", filename="dh_logs/logs.log")
 

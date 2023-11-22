@@ -214,20 +214,6 @@ def get_time_elapsed(data=None, date_cols=None, by="s", col_name=None):
 
 
 def get_period_of_day(date_col=None):
-    """
-    Returns a list of the time of the day as regards to mornings, afternoons, or evenings.
-    Hour of the day that falls between [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12] are mapped to mornings,
-    [13, 14, 15, 16] are mapped to afternoons, and [17, 18, 19, 20, 21, 22, 23] are mapped to evenings.
-
-    Parameters:
-    ------------
-    date_col: Series, 1-D DataFrame
-        The datetime feature.
-
-    Returns:
-    ----------
-    Series of mapped values.
-    """
     if date_col is None:
         raise ValueError("date_col: Expecting a date column, got 'None'")
 
