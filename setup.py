@@ -1,62 +1,55 @@
 #!/usr/bin/env python
 
-from io import open
+import os
 from setuptools import find_packages, setup
 
-version_info = {}
+with open(os.path.join(os.path.dirname(__file__), "requirements_dev.txt"), "r") as fh:
+    requirements = fh.readlines()
 
-DESC = " A Data science library for data science / data analysis teams "
+NAME = "datahelp"
 
-# read __version__.py as bytes, otherwise exec will complain about
-# 'coding: utf-8', which we want there for the normal Python 2 import
-try:
-    with open('datahelp/__version__.py', 'rb') as fp:
-        exec(fp.read(), version_info)
-except FileNotFoundError:
-    pass
+DESCRIPTION = (
+    "A Data science library for data science / data analysis teams"
+)
 
-# defines __version__
-exec(open("datahelp/__version__.py").read())
+AUTHOR = "Binance"
+URL = "https://github.com/kimxons/datahelp"
+VERSION = None
 
-LONG_DESC = open("README.md").read()
+
+about = {}
+
+with open("README.md", "r") as fh:
+    about["long_description"] = fh.read()
+
+root = os.path.abspath(os.path.dirname(__file__))
+
+if not VERSION:
+    with open(os.path.join(root, "datahelp", "__version__.py")) as f:
+        exec(f.read(), about)
+else:
+    about["__version__"] = VERSION
 
 setup(
-    name="datahelp",
-    version=__version__,
-    description=DESC,
-    long_description=LONG_DESC,
-    long_description_content_type="text/markdown",
-    project_urls={
-        "Documentation": "https://datahelp.readthedocs.io/en/latest/",
-    },
+    name=NAME,
+    version=about["__version__"],
     license="MIT",
-    packages=find_packages(),
-    url="https://github.com/datahelp/datahelp",
-    install_requires=[
-        "numpy >= 1.26.2",
-        "pandas >= 2.1.3",
-        "scikit-learn >= 1.3.2",
-        "joblib >= 1.3.2",
-        "matplotlib >= 3.8.2",
-        "seaborn >= 0.13.0",
-        "nltk >= 3.8.1",
-    ],
-    extras_require={
-        "test": ["pytest", "pytest-cov", "scipy"],
-    },
-    python_requires=">=3.7",
+    description=DESCRIPTION,
+    long_description=about["long_description"],
+    long_description_content_type="text/markdown",
+    AUTHOR=AUTHOR,
+    url=URL,
+    keywords=["Datahelp", "Data Science", "Data Analysis"],
+    install_requires=[req for req in requirements],
+    packages=find_packages(exclude=("tests",)),
     classifiers=[
-        "Development Status :: 4 - Beta",
         "Intended Audience :: Developers",
-        "Intended Audience :: Science/Research",
         "Intended Audience :: Financial and Insurance Industry",
-        "License :: OSI Approved :: BSD License",
-        "Programming Language :: Python :: 3",
-        "Programming Language :: Python :: 3.7",
+        "License :: OSI Approved :: MIT License",
         "Programming Language :: Python :: 3.8",
         "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: 3.10",
         "Programming Language :: Python :: 3.11",
-        "Topic :: Scientific/Engineering",
     ],
+    python_requires=">=3.8",
 )
