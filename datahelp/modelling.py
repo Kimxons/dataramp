@@ -1,5 +1,7 @@
 import platform
+import os, sys
 
+sys.path.append(os.getcwd())
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
