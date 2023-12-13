@@ -5,7 +5,7 @@ from pathlib import Path
 import joblib
 from custom_logger import Logger
 
-from utils import _get_path
+from datahelp.utils import _get_path
 
 __author__ = "Meshack Kitonga"
 __email__ = "kitongameshack9@gmail.com"

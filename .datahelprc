@@ -1,6 +1,0 @@
-{
-  "data_dir": "/path/to/data/directory",
-  "model_dir": "/path/to/model/directory",
-  "log_dir": "/path/to/log/directory"
-}
-
