@@ -12,7 +12,7 @@ DESCRIPTION = (
     "A Data science library for data science / data analysis teams"
 )
 
-AUTHOR = "Binance"
+AUTHOR = "Meshack Kitonga"
 URL = "https://github.com/kimxons/datahelp"
 VERSION = None
 
