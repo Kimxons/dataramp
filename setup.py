@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 import os
+
 from setuptools import find_packages, setup
 
 with open(os.path.join(os.path.dirname(__file__), "requirements_dev.txt"), "r") as fh:
@@ -8,9 +9,7 @@ with open(os.path.join(os.path.dirname(__file__), "requirements_dev.txt"), "r") 
 
 NAME = "datahelp"
 
-DESCRIPTION = (
-    "A Data science library for data science / data analysis teams"
-)
+DESCRIPTION = "A Data science library for data science / data analysis teams"
 
 AUTHOR = "Meshack Kitonga"
 URL = "https://github.com/kimxons/datahelp"

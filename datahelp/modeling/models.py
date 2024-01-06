@@ -1,5 +1,5 @@
-import platform
 import os, sys
+import platform
 
 sys.path.append(os.getcwd())
 import matplotlib.pyplot as plt
