@@ -1,13 +1,19 @@
-from __version__ import __version__
+"""
+Datahelp: A Python library for Data Analysts/Scientists.
 
+Author: {__author__}
+Contact: {__author_email__}
+"""
+
+from __version__ import __version__, __author__, __author_email__
 
 def print_header():
     """
     Print the header information including the version and copyright details.
     """
     header = (
-        f"datahelp (Version {__version__})\n"
-        "Copyright (c) 2023 Meshack Kitonga. Licensed under License 1.0."
+        f"Datahelp Version {__version__}\n"
+        f"Copyright (c) 2023 {__author__}, {__author_email__}.\nLicensed under License 1.0."
         "\n"
     )
 
