@@ -96,11 +96,9 @@ def extract_date_info(data=None, date_cols=None, subset=None, drop=True):
     return df
 
 
-def extract_time_info(data=None, time_cols=None, subset=None, drop=True):
+def extract_time_info(data, time_cols, subset=None, drop=True):
     """
-    Returns time information in a pandas DataFrame as a new set of columns
-    added to the original data frame. For extracting DateTime features,
-    use extract_date_info function.
+    Returns time information as new columns in a pandas DataFrame.
 
     Parameters:
     -----------
@@ -110,7 +108,7 @@ def extract_time_info(data=None, time_cols=None, subset=None, drop=True):
     time_cols: List, Array
         Name of time columns/features in the data set.
 
-    subset: List, Array
+    subset: List, Array, Default None
         Time features to return, defaults to [hours, minutes, and seconds].
 
     drop: bool, Default True
@@ -120,6 +118,7 @@ def extract_time_info(data=None, time_cols=None, subset=None, drop=True):
     --------
     DataFrame or Series.
     """
+    # Input validation
     if data is None or time_cols is None:
         raise ValueError("Both 'data' and 'time_cols' must be provided.")
 
@@ -132,8 +131,7 @@ def extract_time_info(data=None, time_cols=None, subset=None, drop=True):
     if not time_cols:
         raise ValueError("time_cols must not be an empty list.")
 
-    if subset is None:
-        subset = ["hours", "minutes", "seconds"]
+    subset = subset or ["hours", "minutes", "seconds"]
 
     if not set(subset).issubset(["hours", "minutes", "seconds"]):
         raise ValueError("Invalid values in the 'subset' parameter.")
@@ -142,21 +140,16 @@ def extract_time_info(data=None, time_cols=None, subset=None, drop=True):
         if col not in data.columns:
             raise ValueError(f"{col} not found in the DataFrame.")
 
+    # Copy the input data
     df = data.copy()
 
-    if "hours" in subset:
-        df["hours"] = df[time_cols].dt.hour
+    # Extract time information
+    for time_unit in subset:
+        df[time_unit] = getattr(df[time_cols].dt, time_unit)
 
-    if "minutes" in subset:
-        df["minutes"] = df[time_cols].dt.minute
-
-    if "seconds" in subset:
-        df["seconds"] = df[time_cols].dt.second
-
+    # Drop original time columns if specified
     if drop:
         df.drop(time_cols, axis=1, inplace=True)
-
-    return df
 
 
 def get_time_elapsed(data=None, date_cols=None, by="s", col_name=None):

@@ -1,10 +1,10 @@
 #!/bin/bash
 
-set -ex
+set -ex # exit on first error & display each command as it executed
 
-black --version  # 22.6.0 (on Python 3.9)
-usort --version  # 1.0.4
-flake8 --version  # 5.0.4
+black --version  # 22.6.0 (on Python 3.9) - code formatting
+usort --version  # 1.0.4 - sort imports
+flake8 --version  # 5.0.4 - code linting
 
 usort format datahelp
 usort format tests
