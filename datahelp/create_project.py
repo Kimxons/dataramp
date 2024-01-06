@@ -66,12 +66,12 @@ def create_project(project_name: str):
     # Project config settings
     config = {
         "description": "Holds the project config settings",
-        "basepath": str(base_path),
-        "datapath": str(data_path),
-        "processedpath": str(processed_path),
-        "rawpath": str(raw_path),
-        "outputpath": str(output_path),
-        "modelspath": str(models_path),
+        "base_path": str(base_path),
+        "data_path": str(data_path),
+        "processed_data_path": str(processed_path),
+        "raw_data_path": str(raw_path),
+        "output_path": str(output_path),
+        "models_path": str(models_path),
     }
 
     config_path = base_path / ".datahelprc"
