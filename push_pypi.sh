@@ -1,9 +1,18 @@
-#!/bin/bash -e
+#!/bin/bash 
 
-poetry install
+set -e
 
-poetry build
+pip install wheel twine
 
-poetry publish --build
+PACKAGE_NAME="datahelp"
+VERSION="0.1.0"
 
-poetry env remove
+rm -rf dist
+
+python -m build
+
+# python setup.py sdist bdist_wheel
+
+twine upload dist/*
+
+echo "Execution completed!"

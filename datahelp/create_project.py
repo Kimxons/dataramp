@@ -10,10 +10,10 @@ import pickle
 from pathlib import Path
 
 import joblib
+from __version__ import __author__, __author_email__
 from custom_logger import Logger
 
 from datahelp.utils import _get_path
-from __version__ import __author__, __author_email__
 
 # __author__ = "Meshack Kitonga"
 # __email__ = "kitongameshack9@gmail.com"
@@ -148,6 +148,11 @@ def model_save(model, name="model", method="joblib"):
     except Exception as e:
         logger.error(f"Failed to save model due to {e}")
 
-# __doc__ = __doc__.format(author=__author__, email=__author_email__)
-# create_project.__doc__ = create_project.__doc__.format(author=__author__, email=__author_email__)
-# model_save.__doc__ = model_save.__doc__.format(author=__author__, email=__author_email__)
+
+__doc__ = __doc__.format(author=__author__, email=__author_email__)
+create_project.__doc__ = create_project.__doc__.format(
+    author=__author__, email=__author_email__
+)
+model_save.__doc__ = model_save.__doc__.format(
+    author=__author__, email=__author_email__
+)

@@ -5,7 +5,8 @@ Author: {__author__}
 Contact: {__author_email__}
 """
 
-from __version__ import __version__, __author__, __author_email__
+from __version__ import __author__, __author_email__, __version__
+
 
 def print_header():
     """
