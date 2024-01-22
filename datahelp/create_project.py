@@ -86,7 +86,7 @@ def create_project(project_name: str):
     with open(config_path, "w") as config_file:
         json.dump(config, config_file, indent=4)
 
-    readme_path = base_path / "README.txt"
+    readme_path = base_path / "README.md"
     with open(readme_path, "w") as readme:
         readme.write("Creates a standard data science project directory structure.")
 
