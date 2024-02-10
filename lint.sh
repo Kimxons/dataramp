@@ -1,19 +1,16 @@
 #!/bin/bash
 
-set -euo pipefail  # Best practices for error handling
+set -euo pipefail 
 
-# Function to display a header
 function print_header() {
   local header_text=$1
   echo -e "\n\e[1;36m=== $header_text ===\e[0m\n"
 }
 
-# Function to check if a command is available
 function command_exists() {
   command -v "$1" >/dev/null 2>&1
 }
 
-# Check if required commands are available
 for cmd in black usort flake8 pylint; do
   if ! command_exists "$cmd"; then
     echo -e "\e[1;31mError: $cmd not found. Please install it before running the script.\e[0m" >&2
@@ -21,7 +18,6 @@ for cmd in black usort flake8 pylint; do
   fi
 done
 
-# Versions
 BLACK_VERSION=$(black --version)
 USORT_VERSION=$(usort --version)
 FLAKE8_VERSION=$(flake8 --version)
@@ -33,10 +29,8 @@ echo "USORT_VERSION: $USORT_VERSION"
 print_header "Code Linting"
 echo "FLAKE8_VERSION: $FLAKE8_VERSION"
 
-# Specify directories to lint
-DIRECTORIES_TO_LINT=("examples" "datahelp" "tests")
+DIRECTORIES_TO_LINT=("examples" "datahelp")
 
-# Function to format directories using usort and black
 function format_directories() {
   for directory in "${DIRECTORIES_TO_LINT[@]}"; do
     echo -e "\n\e[1;34mFormatting directory: $directory\e[0m"
@@ -49,10 +43,9 @@ function format_directories() {
   done
 }
 
-# Function to lint specific module using pylint
 function lint_files() {
   local module=$1
-  local skip_flags=${2:-""}  # Use an empty string if not provided
+  local skip_flags=${2:-""} 
   print_header "Linting Module: $module"
   if [ -n "$(find "$module" -name '*.py' -print -quit)" ]; then
     pylint --disable="$skip_flags" "$module" || true
@@ -61,10 +54,9 @@ function lint_files() {
   fi
 }
 
-# Function to lint changed files using pylint
 function lint_changed_files() {
   local module=$1
-  local skip_flags=${2:-""}  # Use an empty string if not provided
+  local skip_flags=${2:-""} 
   local files
   files=$(git status -s "$module" | grep -v "^D" | awk '{print $NF}' | grep .py$ || true)
   if [ -n "$files" ]; then
@@ -78,7 +70,6 @@ function lint_changed_files() {
   fi
 }
 
-# Main linting and formatting
 function main() {
   format_directories
 
@@ -88,7 +79,6 @@ function main() {
   done
 }
 
-# Main execution
 CHECK_ALL=false
 
 main

@@ -1,9 +1,0 @@
-services:
-  datahelp:
-    build: .
-    # Uncomment this to mount your local version
-    # of the datahelp code.
-    # volumes:
-    #   - .:/home/datahelp/
-    ports:
-    - "8888:8888"

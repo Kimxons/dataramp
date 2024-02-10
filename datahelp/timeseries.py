@@ -213,15 +213,19 @@ def get_period_of_day(date_col=None):
     if date_col.dtype != np.int:
         date_col_hr = pd.to_datetime(date_col).dt.hour
         return date_col_hr.map(
-            lambda x: "morning"
-            if x in range(13)
-            else ("afternoon" if x in range(13, 17) else "evening")
+            lambda x: (
+                "morning"
+                if x in range(13)
+                else ("afternoon" if x in range(13, 17) else "evening")
+            )
         )
     else:
         return date_col.map(
-            lambda x: "morning"
-            if x in range(13)
-            else ("afternoon" if x in range(13, 17) else "evening")
+            lambda x: (
+                "morning"
+                if x in range(13)
+                else ("afternoon" if x in range(13, 17) else "evening")
+            )
         )
 
 
