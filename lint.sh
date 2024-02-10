@@ -1,6 +1,6 @@
 #!/bin/bash
 
-set -euo pipefail 
+set -euo pipefail
 
 function print_header() {
   local header_text=$1
@@ -29,56 +29,34 @@ echo "USORT_VERSION: $USORT_VERSION"
 print_header "Code Linting"
 echo "FLAKE8_VERSION: $FLAKE8_VERSION"
 
-DIRECTORIES_TO_LINT=("examples" "datahelp")
+function format_and_lint() {
+  local current_dir=$(pwd)
+  print_header "Formatting and Linting Current Directory: $current_dir"
 
-function format_directories() {
-  for directory in "${DIRECTORIES_TO_LINT[@]}"; do
-    echo -e "\n\e[1;34mFormatting directory: $directory\e[0m"
-    if [ -n "$(find "$directory" -maxdepth 1 -name '*.py' -print -quit)" ]; then
-      usort format "$directory"
-      black "$directory"
-    else
-      echo "No Python files are present to be formatted. Nothing to do 😴"
-    fi
+  usort format "$current_dir"
+  black "$current_dir"
+
+  for file in "$current_dir"/*.py; do
+    [ -e "$file" ] || continue
+    pylint "$file" || true
   done
-}
 
-function lint_files() {
-  local module=$1
-  local skip_flags=${2:-""} 
-  print_header "Linting Module: $module"
-  if [ -n "$(find "$module" -name '*.py' -print -quit)" ]; then
-    pylint --disable="$skip_flags" "$module" || true
-  else
-    echo -e "\e[1;32mNo Python files to lint in module $module.\e[0m"
-  fi
-}
-
-function lint_changed_files() {
-  local module=$1
-  local skip_flags=${2:-""} 
-  local files
-  files=$(git status -s "$module" | grep -v "^D" | awk '{print $NF}' | grep .py$ || true)
-  if [ -n "$files" ]; then
-    print_header "Linting Changed Files in Module: $module"
-    for file in $files; do
+  local changed_files
+  changed_files=$(git status -s "$current_dir" | grep -v "^D" | awk '{print $NF}' | grep .py$ || true)
+  if [ -n "$changed_files" ]; then
+    print_header "Linting Changed Files in Current Directory: $current_dir"
+    for file in $changed_files; do
+      [ -e "$file" ] || continue
       echo -e "\e[1;33m$file\e[0m"
-      pylint --disable="$skip_flags" "$file" || true
+      pylint "$file" || true
     done
   else
-    echo -e "\e[1;32mNo changed files in module $module.\e[0m"
+    echo -e "\e[1;32mNo changed files in the current directory.\e[0m"
   fi
 }
 
 function main() {
-  format_directories
-
-  for module in "${DIRECTORIES_TO_LINT[@]}"; do
-    lint_files "$module"
-    lint_changed_files "$module"
-  done
+  format_and_lint
 }
-
-CHECK_ALL=false
 
 main

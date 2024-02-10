@@ -1,16 +1,19 @@
 #!/usr/bin/env python
 
-from setuptools import setup, find_packages
 import re
+
+from setuptools import find_packages, setup
+
 
 def get_version(module):
     """
     Return the version of the module without loading the whole module: as listed in the __version__ attribute
     """
-    version_info = open('{0}.py'.format(module)).read()
+    version_info = open("{0}.py".format(module)).read()
     return re.search(r'__version__ = ["\']([^"\']+)["\']', version_info).group(1)
 
-version = get_version('info')
+
+version = get_version("info")
 
 setup(
     name="datahelp",
