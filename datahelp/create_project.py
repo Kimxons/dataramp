@@ -1,24 +1,16 @@
-"""
-Datahelp: A Python library for common data science project utilities.
-
-Author: {__author__}
-Contact: {__email__}
-"""
-
 import json
 import pickle
 from pathlib import Path
-
 import joblib
-from __version__ import __author__, __author_email__
-from custom_logger import Logger
 
+# Local imports
 from datahelp.utils import _get_path
 
-# __author__ = "Meshack Kitonga"
-# __email__ = "kitongameshack9@gmail.com"
-
-logger = Logger(logger_name="dh_logger", filename="logs.log")
+SUPPORTED_METHODS = {
+    "joblib": joblib.dump,
+    "pickle": pickle.dump,
+    # "keras": tf.keras.models.save_model,
+}
 
 
 def create_directory(path: Path):
@@ -90,8 +82,6 @@ def create_project(project_name: str):
     with open(readme_path, "w") as readme:
         readme.write("Creates a standard data science project directory structure.")
 
-    logger.info(f"Project created successfully in {base_path}")
-
 
 def model_save(model, name="model", method="joblib"):
     """
@@ -111,12 +101,6 @@ def model_save(model, name="model", method="joblib"):
     if model is None:
         raise ValueError("Expecting a binary model file, got 'None'")
 
-    SUPPORTED_METHODS = {
-        "joblib": joblib.dump,
-        "pickle": pickle.dump,
-        # "keras": tf.keras.models.save_model,
-    }
-
     if method not in SUPPORTED_METHODS:
         raise ValueError(
             f"Method {method} not supported. Supported methods are: {list(SUPPORTED_METHODS.keys())}"
@@ -128,31 +112,19 @@ def model_save(model, name="model", method="joblib"):
 
         SUPPORTED_METHODS[method](model, filename)
 
-        logger.info(f"Model saved successfully to {filename}")
     except FileNotFoundError:
-        msg = (
+        print(
             f"Models folder does not exist. Saving model to the {name} folder. "
             f"It is recommended that you start your project using datahelp's start_project function"
         )
-        logger.info(msg)
-
         filename = f"{name}.{method}"
 
         SUPPORTED_METHODS[method](model, filename)
 
-        logger.info(f"Model saved successfully to {filename}")
     except PermissionError as e:
-        logger.error(
+        print(
             f"Permission error while saving model. Check file permissions. {e}"
         )
     except Exception as e:
-        logger.error(f"Failed to save model due to {e}")
+        print(f"Failed to save model due to {e}")
 
-
-__doc__ = __doc__.format(author=__author__, email=__author_email__)
-create_project.__doc__ = create_project.__doc__.format(
-    author=__author__, email=__author_email__
-)
-model_save.__doc__ = model_save.__doc__.format(
-    author=__author__, email=__author_email__
-)
