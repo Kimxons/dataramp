@@ -1,18 +1,4 @@
-#!/bin/bash 
-
-set -e
-
-pip install wheel twine
-
-PACKAGE_NAME="datahelp"
-VERSION="0.1.0"
-
+#!/bin/bash -e
 rm -rf dist
-
-python -m build
-
-# python setup.py sdist bdist_wheel
-
+ipython3 setup.py sdist bdist_wheel
 twine upload dist/*
-
-echo "Execution completed!"

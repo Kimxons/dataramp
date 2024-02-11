@@ -1,25 +1,43 @@
 #!/usr/bin/env python
 
-import re
-
+import sys
+import os
+import subprocess
 from setuptools import find_packages, setup
 
+if sys.version_info < (3, 7): sys.exit("Sorry, Python >= 3.7 is required")
 
-def get_version(module):
-    """
-    Return the version of the module without loading the whole module: as listed in the __version__ attribute
-    """
-    version_info = open("{0}.py".format(module)).read()
-    return re.search(r'__version__ = ["\']([^"\']+)["\']', version_info).group(1)
+def write__version_py():
+    with open(os.path.join("datahelp", "version.txt")) as f:
+        version = f.read().strip()
 
+    # append latest commit hash to version string
+    try:
+        sha = (
+            subprocess.check_output(["git", "rev-parse", "HEAD"])
+            .decode("ascii")
+            .strip()
+        )
+        version += "+" + sha[:7]
+    except Exception:
+        pass
 
-version = get_version("info")
+    # write version info to datahelp/version.py
+    with open(os.path.join("datahelp", "version.py"), "w") as f:
+        f.write('__version__ = "{}"\n'.format(version))
+    return version
+
+version = write__version_py()
+
+with open("README.md") as f:
+    long_description = f.read()
 
 setup(
     name="datahelp",
     version=version,
     license="MIT",
     description="A Data science library for data science / data analysis teams",
+    long_description=long_description,
     long_description_content_type="text/markdown",
     author="Meshack Kitonga",
     author_email="kitongameshack9@gmail.com",
