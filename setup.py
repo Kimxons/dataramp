@@ -1,11 +1,14 @@
 #!/usr/bin/env python
 
-import sys
 import os
 import subprocess
+import sys
+
 from setuptools import find_packages, setup
 
-if sys.version_info < (3, 7): sys.exit("Sorry, Python >= 3.7 is required")
+if sys.version_info < (3, 7):
+    sys.exit("Sorry, Python >= 3.7 is required")
+
 
 def write__version_py():
     with open(os.path.join("datahelp", "version.txt")) as f:
@@ -26,6 +29,7 @@ def write__version_py():
     with open(os.path.join("datahelp", "version.py"), "w") as f:
         f.write('__version__ = "{}"\n'.format(version))
     return version
+
 
 version = write__version_py()
 
