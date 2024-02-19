@@ -11,58 +11,32 @@ if sys.version_info < (3, 7):
 
 
 def write_version_py():
-    with open(os.path.join("datahelp", "version.txt")) as f:
+    with open(os.path.join("dataplus", "version.txt")) as f:
         version = f.read().strip()
 
-    # append latest commit hash to version string
     try:
         num_commits = (
             subprocess.check_output(["git", "rev-list", "--count", "HEAD"])
-            # .strip()
             .decode("ascii")
             .strip()
         )
-        # version += "+" + num_commits[:7] # this throws an error while uploading on pypi - bad version as per PEP 440
+        if num_commits:
+            version += f".dev{num_commits}"
     except Exception:
-        # num_commits = 0
         pass
 
-    if num_commits:
-        version += f".dev{num_commits}"
-
-    # write version info to datahelp/version.py
-    with open(os.path.join("datahelp", "version.py"), "w") as f:
+    # Write version info to dataplus/version.py
+    with open(os.path.join("dataplus", "version.py"), "w") as f:
         f.write('__version__ = "{}"\n'.format(version))
     return version
     
-# def write_version_py():
-#     with open(os.path.join("datahelp", "version.txt")) as f:
-#         version = f.read().strip()
-
-#     # Get the latest commit hash
-#     try:
-#         num_commits = (
-#             subprocess.check_output(["git", "rev-parse", "HEAD"])
-#             .decode("ascii")
-#             .strip()
-#         )
-#         version_with_commit_hash = version + ".dev0"
-#     except Exception:
-#         version_with_commit_hash = version + ".dev0"
-
-#     # Write version info to datahelp/version.py
-#     with open(os.path.join("datahelp", "version.py"), "w") as f:
-#         f.write('__version__ = "{}"\n'.format(version_with_commit_hash))
-
-#     return version_with_commit_hash
-
 version = write_version_py()
 
 with open("README.md") as f:
     long_description = f.read()
 
 setup(
-    name="datahelp",
+    name="dataplus",
     version=version,
     license="MIT",
     description="A Data science library for data science / data analysis teams",
@@ -71,7 +45,7 @@ setup(
     author="Meshack Kitonga",
     author_email="kitongameshack9@gmail.com",
     url="",
-    keywords=["Datahelp", "Data Science", "Data Analysis"],
+    keywords=["dataplus", "Data Science", "Data Analysis"],
     packages=find_packages(exclude=("tests",)),
     classifiers=[
         "Intended Audience :: Developers",
