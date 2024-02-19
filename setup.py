@@ -29,7 +29,8 @@ def write_version_py():
     with open(os.path.join("dataramp", "version.py"), "w") as f:
         f.write('__version__ = "{}"\n'.format(version))
     return version
-    
+
+
 version = write_version_py()
 
 with open("README.md") as f:

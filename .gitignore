@@ -20,3 +20,5 @@ notebooks
 __pycache__
 dh_logs
 *.lock
+
+*.egg-info/

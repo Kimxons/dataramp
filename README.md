@@ -38,59 +38,71 @@ By providing a range of functionalities, Dataramp aims to enhance productivity a
 
 
 ## Quickstart
+To get started with Dataramp in your data science projects, follow these simple steps:
 
-To use dataramp in your data science projects, you can install it via pip:
+You can install Dataramp via pip:
 
 ```bash
-pip install dataramp
+pip install dataramp 
 ```
+To upgrade an existing installation of Dataramp, use:
 
+```bash 
+pip install --upgrade dataramp
+``` 
+
+## Getting Started
 Once installed, you can import the library and explore its functionality:
 
+```bash
+import dataramp as dr
+```
+## Creating a New Project
+
+To create a new project using Dataramp, run:
+
+```bash
+dr.core.create_project("project-name")
+```
+This will create a project with a structured directory layout to kickstart your project.
+
+## Project Directory Structure
+
+```bash 
+project-name/
+├── datasets
+│   └── dataset.csv
+├── outputs
+│   └── models
+├── README.md
+└── src
+    ├── notebooks
+    │   └── notebook.ipynb
+    └── scripts
+        ├── ingest
+        └── tests
+```
+
+## Sample Usage
 ```python
 import dataramp as dr  # import the dataramp library
 import pandas as pd
 
-# To create your project with help of dataramp
-from dataramp.create_project import create_project
-
-
+from dataramp.utils import (
+    describe_df,
+    get_cat_vars,
+    feature_summary,
+    display_missing,
+    get_unique_counts,
+)
 
 df = pd.read_csv("data/iris.csv")  # load iris dataset
 
 df.head() #  Snapshot of your df
 
-
-cats = dh.eda.get_cat_vars(df)
-print(cats)
-
-num_var = dh.eda.get_num_vars(df)
-print(num_var)
-
-cat_count = dh.eda.get_cat_counts(df)
-cat_count
-
-missing = dh.eda.display_missing(df)
-missing
+missing = display_missing(df)
+print(missing)
 ```
-## Lins
-Project: https://github.com/kimxons/dataramp
-PyPi: https://pypi.org/project/dataramp/
-
-## Documentation
-
-For detailed usage instructions and API reference, please refer to the official documentation at [https://dataramp-docs.example.com](https://dataramp-docs.example.com)
-
-We use SemVer for versioning
-
-## Contribution
-
-dataramp is an open-source project, and we welcome contributions from the data science community. If you find a bug, have a feature request, or want to contribute improvements, please open an issue or submit a pull request on our GitHub repository at [https://github.com/kimxons/dataramp](https://github.com/kimxons/dataramp).
-
-## License
-
-dataramp is licensed under the MIT License. See the [LICENSE](https://github.com/dataramp/dataramp/blob/main/LICENSE) file for more details.
-
-## Contact
-
-If you have any questions or feedback, feel free to reach out to our support team at dev.kitonga@gmail.com or join our community forum at [https://community.dataramp.com](https://community.dataramp.com). We are here to assist you in making your data science journey smooth and successful!
+## Project Links
+- GitHub Repository: [dataramp](https://github.com/kimxons/dataramp)
+- PyPI Package: [dataramp](https://pypi.org/project/dataramp/)
