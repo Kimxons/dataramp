@@ -11,7 +11,7 @@ if sys.version_info < (3, 7):
 
 
 def write_version_py():
-    with open(os.path.join("dataplus", "version.txt")) as f:
+    with open(os.path.join("dataramp", "version.txt")) as f:
         version = f.read().strip()
 
     try:
@@ -25,8 +25,8 @@ def write_version_py():
     except Exception:
         pass
 
-    # Write version info to dataplus/version.py
-    with open(os.path.join("dataplus", "version.py"), "w") as f:
+    # Write version info to dataramp/version.py
+    with open(os.path.join("dataramp", "version.py"), "w") as f:
         f.write('__version__ = "{}"\n'.format(version))
     return version
     
@@ -36,7 +36,7 @@ with open("README.md") as f:
     long_description = f.read()
 
 setup(
-    name="dataplus",
+    name="dataramp",
     version=version,
     license="MIT",
     description="A Data science library for data science / data analysis teams",
@@ -45,7 +45,7 @@ setup(
     author="Meshack Kitonga",
     author_email="kitongameshack9@gmail.com",
     url="",
-    keywords=["dataplus", "Data Science", "Data Analysis"],
+    keywords=["dataramp", "Data Science", "Data Analysis"],
     packages=find_packages(exclude=("tests",)),
     classifiers=[
         "Intended Audience :: Developers",

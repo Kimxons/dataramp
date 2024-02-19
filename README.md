@@ -1,12 +1,12 @@
-# dataplus
+# dataramp
 
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 
-**dataplus** is a Python library designed to assist data science and data analysis teams in their workflow. It provides various utility functions and tools to streamline common data science tasks.
+**dataramp** is a Python library designed to assist data science and data analysis teams in their workflow. It provides various utility functions and tools to streamline common data science tasks.
 
 ## Features
 
-dataplus offers the following key features:
+dataramp offers the following key features:
 
 1. **Project Management:** Simplifies the creation of standard data science project structures. With a single function call, you can generate a well-organized project directory with predefined folders for datasets, processed data, raw data, outputs, models, scripts, notebooks, and more.
 
@@ -22,16 +22,16 @@ dataplus offers the following key features:
 
 ## Quickstart
 
-To use dataplus in your data science projects, you can install it via pip:
+To use dataramp in your data science projects, you can install it via pip:
 
 ```bash
-pip install dataplus
+pip install dataramp
 ```
 
 Once installed, you can import the library and explore its functionality:
 
 ```python
-import dataplus as dh  # import the dataplus library
+import dataramp as dh  # import the dataramp library
 
 df = pd.read_csv("data/iris.csv")  # load iris dataset
 
@@ -50,23 +50,23 @@ missing = dh.eda.display_missing(df)
 missing
 ```
 ## Lins
-Project: https://github.com/kimxons/dataplus
-PyPi: https://pypi.org/project/dataplus/
+Project: https://github.com/kimxons/dataramp
+PyPi: https://pypi.org/project/dataramp/
 
 ## Documentation
 
-For detailed usage instructions and API reference, please refer to the official documentation at [https://dataplus-docs.example.com](https://dataplus-docs.example.com)
+For detailed usage instructions and API reference, please refer to the official documentation at [https://dataramp-docs.example.com](https://dataramp-docs.example.com)
 
 We use SemVer for versioning
 
 ## Contribution
 
-dataplus is an open-source project, and we welcome contributions from the data science community. If you find a bug, have a feature request, or want to contribute improvements, please open an issue or submit a pull request on our GitHub repository at [https://github.com/kimxons/dataplus](https://github.com/kimxons/dataplus).
+dataramp is an open-source project, and we welcome contributions from the data science community. If you find a bug, have a feature request, or want to contribute improvements, please open an issue or submit a pull request on our GitHub repository at [https://github.com/kimxons/dataramp](https://github.com/kimxons/dataramp).
 
 ## License
 
-dataplus is licensed under the MIT License. See the [LICENSE](https://github.com/dataplus/dataplus/blob/main/LICENSE) file for more details.
+dataramp is licensed under the MIT License. See the [LICENSE](https://github.com/dataramp/dataramp/blob/main/LICENSE) file for more details.
 
 ## Contact
 
-If you have any questions or feedback, feel free to reach out to our support team at dev.kitonga@gmail.com or join our community forum at [https://community.dataplus.com](https://community.dataplus.com). We are here to assist you in making your data science journey smooth and successful!
+If you have any questions or feedback, feel free to reach out to our support team at dev.kitonga@gmail.com or join our community forum at [https://community.dataramp.com](https://community.dataramp.com). We are here to assist you in making your data science journey smooth and successful!
