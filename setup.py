@@ -10,28 +10,53 @@ if sys.version_info < (3, 7):
     sys.exit("Sorry, Python >= 3.7 is required")
 
 
-def write__version_py():
+def write_version_py():
     with open(os.path.join("datahelp", "version.txt")) as f:
         version = f.read().strip()
 
     # append latest commit hash to version string
     try:
-        sha = (
-            subprocess.check_output(["git", "rev-parse", "HEAD"])
+        num_commits = (
+            subprocess.check_output(["git", "rev-list", "--count", "HEAD"])
+            # .strip()
             .decode("ascii")
             .strip()
         )
-        version += "+" + sha[:7]
+        # version += "+" + num_commits[:7] # this throws an error while uploading on pypi - bad version as per PEP 440
     except Exception:
+        # num_commits = 0
         pass
+
+    if num_commits:
+        version += f".dev{num_commits}"
 
     # write version info to datahelp/version.py
     with open(os.path.join("datahelp", "version.py"), "w") as f:
         f.write('__version__ = "{}"\n'.format(version))
     return version
+    
+# def write_version_py():
+#     with open(os.path.join("datahelp", "version.txt")) as f:
+#         version = f.read().strip()
 
+#     # Get the latest commit hash
+#     try:
+#         num_commits = (
+#             subprocess.check_output(["git", "rev-parse", "HEAD"])
+#             .decode("ascii")
+#             .strip()
+#         )
+#         version_with_commit_hash = version + ".dev0"
+#     except Exception:
+#         version_with_commit_hash = version + ".dev0"
 
-version = write__version_py()
+#     # Write version info to datahelp/version.py
+#     with open(os.path.join("datahelp", "version.py"), "w") as f:
+#         f.write('__version__ = "{}"\n'.format(version_with_commit_hash))
+
+#     return version_with_commit_hash
+
+version = write_version_py()
 
 with open("README.md") as f:
     long_description = f.read()
