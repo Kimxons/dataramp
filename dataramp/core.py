@@ -1,4 +1,3 @@
-import argparse
 import json
 import os
 import pickle
@@ -105,8 +104,8 @@ def create_project(project_name: str):
         notebooks_path,
     ]
 
-    for directory in dirs:
-        create_directory(directory)
+    for dir in dirs:
+        create_directory(dir)
 
     # Project config settings
     config = {

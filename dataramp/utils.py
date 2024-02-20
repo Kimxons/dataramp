@@ -9,6 +9,10 @@ import pandas as pd
 import seaborn as sns
 from tqdm import tqdm
 
+'''
+Feature Engineering: Transform, Binning Temporal, Image Feature selection.
+'''
+
 if platform.system() == "Darwin":
     plt.switch_backend("TkAgg")
 else:

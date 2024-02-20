@@ -3,6 +3,10 @@ import platform
 import sys
 from typing import Optional, Union
 
+'''
+Model traning: Algorithms, Ensemble, Parameter tuning,
+    Retraining, Model management.
+'''
 sys.path.append(os.getcwd())
 import matplotlib.pyplot as plt
 import numpy as np
