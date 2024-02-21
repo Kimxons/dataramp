@@ -116,7 +116,7 @@ def get_cat_vars(df: Union[pd.DataFrame, pd.Series]) -> list:
     list
         The list of categorical feature column names in the input DataFrame or Series object.
     """
-    if not is_df(df, pd.DataFrame):
+    if not isinstance(df, pd.DataFrame):
         raise TypeError("df must be a pandas DataFrame or Series")
 
     cat_vars = df.select_dtypes(include="object").columns.tolist()
@@ -136,7 +136,7 @@ def get_cat_counts(df: Union[pd.DataFrame, pd.Series]) -> pd.DataFrame:
             Unique value counts of the categorical features in the dataframe.
     """
 
-    if not is_df(df):
+    if not isinstance(df):
         raise TypeError("df must be a pandas DataFrame")
 
     cat_vars = get_cat_vars(df)
@@ -398,7 +398,7 @@ def display_missing(
         return dfs
 
 
-def get_unique_counts(data: Union[pd.DataFrame, pd.Series]) -> pd.DataFrame:
+def get_unique_counts(data: pd.DataFrame) -> pd.DataFrame:
     """
     Gets the unique count of categorical features in a data set.
 
