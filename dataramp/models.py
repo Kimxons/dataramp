@@ -3,11 +3,6 @@ import platform
 import sys
 from typing import Optional, Union
 
-'''
-Model traning: Algorithms, Ensemble, Parameter tuning,
-    Retraining, Model management.
-'''
-sys.path.append(os.getcwd())
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -22,6 +17,12 @@ from sklearn.metrics import (
     roc_curve,
 )
 from sklearn.model_selection import cross_val_score
+
+"""
+Model traning: Algorithms, Ensemble, Parameter tuning,
+    Retraining, Model management.
+"""
+sys.path.append(os.getcwd())
 
 
 def switch_plotting_backend():

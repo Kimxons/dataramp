@@ -1,17 +1,18 @@
 from __future__ import annotations
 
 import platform
-from typing import List, Optional, Optional, Union
+from typing import List, Optional, Union, Tuple
 
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import seaborn as sns
 from tqdm import tqdm
+from sklearn.preprocessing import OneHotEncoder
 
-'''
-Feature Engineering: Transform, Binning Temporal, Image Feature selection.
-'''
+"""
+Feature Engineering: Transform, Binning Temporal, Image Feature selection. Also feature extraction comes into play here.
+"""
 
 if platform.system() == "Darwin":
     plt.switch_backend("TkAgg")
@@ -19,7 +20,25 @@ else:
     plt.switch_backend("Agg")
 
 
-def get_num_vars(df: Union[pd.DataFrame, pd.Series]) -> None:
+def is_df(obj: Union[pd.DataFrame, pd.Series]) -> bool:
+    """
+    Returns True if `obj` is a pandas DataFrame.
+    Note that this function is simply doing `isinstance(obj, pd.DataFrame)`.
+    Using that `isinstance` check is better for typechecking with mypy,
+    and more explicit - so it's recommended to use that instead of `is_df`.
+
+    Args:
+        obj (Object): Object to test
+    Example::
+
+        >>> x = pd.DataFrame()
+        >>> is_df(x)
+        True
+    """
+    return isinstance(obj, pd.DataFrame)
+
+
+def get_num_vars(df: Union[pd.DataFrame, pd.Series]) -> list:
     """
     Returns the list of numerical features in a DataFrame or Series object.
 
@@ -33,7 +52,7 @@ def get_num_vars(df: Union[pd.DataFrame, pd.Series]) -> None:
     list
         The list of numerical feature column names in the input DataFrame or Series object.
     """
-    if not isinstance(df, (pd.DataFrame, pd.Series)):
+    if not is_df(df, (pd.DataFrame, pd.Series)):
         raise TypeError("df must be a pandas DataFrame or Series")
 
     num_vars = df.select_dtypes(include=np.number).columns.tolist()
@@ -97,7 +116,7 @@ def get_cat_vars(df: Union[pd.DataFrame, pd.Series]) -> list:
     list
         The list of categorical feature column names in the input DataFrame or Series object.
     """
-    if not isinstance(df, pd.DataFrame):
+    if not is_df(df, pd.DataFrame):
         raise TypeError("df must be a pandas DataFrame or Series")
 
     cat_vars = df.select_dtypes(include="object").columns.tolist()
@@ -117,14 +136,78 @@ def get_cat_counts(df: Union[pd.DataFrame, pd.Series]) -> pd.DataFrame:
             Unique value counts of the categorical features in the dataframe.
     """
 
-    if not isinstance(df, pd.DataFrame):
-        raise TypeError("df must be a pandas DataFrame or Series")
+    if not is_df(df):
+        raise TypeError("df must be a pandas DataFrame")
 
     cat_vars = get_cat_vars(df)
     counts = {var: df[var].value_counts().shape[0] for var in cat_vars}
     return pd.DataFrame(
         {"Feature": list(counts.keys()), "Unique Count": list(counts.values())}
     )
+
+
+def one_hot_encode(df: pd.DataFrame, cols: List[str]) -> pd.DataFrame:
+    """
+    Perform one-hot encoding on categorical columns in the DataFrame.
+
+    Parameters
+    ----------
+    df : pandas DataFrame
+        The input DataFrame containing categorical columns to encode.
+    columns : list of str
+        The list of column names to perform one-hot encoding.
+
+    Returns
+    -------
+    pandas DataFrame
+        The DataFrame with one-hot encoded columns.
+    """
+    if not is_df(df):
+        raise TypeError("df must be a pandas DataFrame")
+
+    if not isinstance(cols, list):
+        raise TypeError("columns must be a list of column names")
+
+    df[cols] = df[cols].astype("category")
+
+    encoder = OneHotEncoder(sparse=False)
+    encoded_cols = pd.DataFrame(encoder.fit_transform(df[cols]))
+    encoded_cols.columns = encoder.get_feature_names_out(cols)
+
+    df = df.drop(cols, axis=1)
+    df = pd.concat([df, encoded_cols], axis=1)
+
+    return df
+
+def target_encode(df: pd.DataFrame, col:str, target_column:str) -> pd.DataFrame:
+    """
+    Perform target encoding on a categorical column in the DataFrame.
+
+    Parameters
+    ----------
+    df : pandas DataFrame
+        The input DataFrame containing the categorical column and the target column.
+    col : str
+        The name of the categorical column to encode.
+    target_column : str
+        The name of the target column.
+
+    Returns
+    -------
+    pandas DataFrame
+        The DataFrame with the categorical column replaced by target encoding.
+    """
+
+    if not is_df(df):
+        raise TypeError("df must be a pandas DataFrame")
+
+    if not isinstance(col, str) or not isinstance(target_column, str):
+        raise TypeError("col and target_column must be strings")
+
+    target_mean = df.groupby(col)[target_column].mean()
+    df[col + '_encoded'] = df[col].map(target_mean)
+
+    return df
 
 
 def plot_feature_importance(
@@ -315,7 +398,7 @@ def display_missing(
         return dfs
 
 
-def get_unique_counts(data=None):
+def get_unique_counts(data: Union[pd.DataFrame, pd.Series]) -> pd.DataFrame:
     """
     Gets the unique count of categorical features in a data set.
 
@@ -332,7 +415,7 @@ def get_unique_counts(data=None):
     if data is None:
         raise ValueError("data: Expecting a DataFrame or Series, got 'None'")
 
-    if not isinstance(data, (pd.DataFrame, pd.Series)):
+    if not is_df(data, (pd.DataFrame, pd.Series)):
         raise TypeError(
             "data: Expecting a DataFrame or Series, got '{}'".format(type(data))
         )
@@ -347,7 +430,7 @@ def get_unique_counts(data=None):
     return unique_counts
 
 
-def join_train_and_test(data_train=None, data_test=None):
+def join_train_and_test(data_train: pd.DataFrame, data_test: pd.DataFrame) -> Tuple[pd.DataFrame, int, int]:
     """
     Joins two data sets and returns a dictionary containing their sizes and the concatenated data.
     Used mostly before feature engineering to combine train and test set together.
@@ -373,7 +456,7 @@ def join_train_and_test(data_train=None, data_test=None):
     if data_train is None or data_test is None:
         raise ValueError("Both 'data_train' and 'data_test' must be provided.")
 
-    if not isinstance(data_train, pd.DataFrame) or not isinstance(
+    if not is_df(data_train, pd.DataFrame) or not is_df(
         data_test, pd.DataFrame
     ):
         raise TypeError("Both 'data_train' and 'data_test' should be DataFrames.")
@@ -385,7 +468,7 @@ def join_train_and_test(data_train=None, data_test=None):
     return all_data, n_train, n_test
 
 
-def check_train_test_set(train_data, test_data, index=None, col=None):
+def check_train_test_set(train_data: pd.DataFrame, test_data: pd.DataFrame, index: Optional[str] = None, col: Optional[str] = None) -> None:
     """
     Checks the distribution of train and test for uniqueness to determine
     the best feature engineering strategy.
@@ -404,7 +487,6 @@ def check_train_test_set(train_data, test_data, index=None, col=None):
     col: str, Default None
         A feature present in both datasets used in plotting.
     """
-
     if index:
         if train_data[index].nunique() == train_data.shape[0]:
             print("ID field is unique in the training set.")
@@ -424,21 +506,3 @@ def check_train_test_set(train_data, test_data, index=None, col=None):
         plt.xlabel(col)
         plt.ylabel("Number of records")
         plt.show()
-
-
-def is_df(obj):
-    """
-    Returns True if `obj` is a pandas DataFrame.
-    Note that this function is simply doing `isinstance(obj, pd.DataFrame)`.
-    Using that `isinstance` check is better for typechecking with mypy,
-    and more explicit - so it's recommended to use that instead of `is_df`.
-
-     Args:
-        obj (Object): Object to test
-    Example::
-
-        >>> x = pd.DataFrame()
-        >>> is_df(x)
-        True
-    """
-    return isinstance(obj, pd.DataFrame)
