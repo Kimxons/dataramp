@@ -170,7 +170,7 @@ def one_hot_encode(df: pd.DataFrame, cols: List[str]) -> pd.DataFrame:
 
     df[cols] = df[cols].astype("category")
 
-    encoder = OneHotEncoder(sparse=False)
+    encoder = OneHotEncoder()
     encoded_cols = pd.DataFrame(encoder.fit_transform(df[cols]))
     encoded_cols.columns = encoder.get_feature_names_out(cols)
 
