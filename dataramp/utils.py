@@ -415,7 +415,7 @@ def get_unique_counts(data: pd.DataFrame) -> pd.DataFrame:
     if data is None:
         raise ValueError("data: Expecting a DataFrame or Series, got 'None'")
 
-    if not is_df(data, (pd.DataFrame, pd.Series)):
+    if not is_df(data, (pd.DataFrame)):
         raise TypeError(
             "data: Expecting a DataFrame or Series, got '{}'".format(type(data))
         )
