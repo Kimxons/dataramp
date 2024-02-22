@@ -19,6 +19,7 @@ if platform.system() == "Darwin":
 else:
     plt.switch_backend("Agg")
 
+
 def is_df(obj: Union[pd.DataFrame, pd.Series]) -> bool:
     """
     Returns True if `obj` is a pandas DataFrame.
@@ -51,7 +52,7 @@ def get_num_vars(df: Union[pd.DataFrame, pd.Series]) -> list:
     list
         The list of numerical feature column names in the input DataFrame or Series object.
     """
-    if not is_df(df, (pd.DataFrame, pd.Series)):
+    if not is_df(df):
         raise TypeError("df must be a pandas DataFrame or Series")
 
     num_vars = df.select_dtypes(include=np.number).columns.tolist()
@@ -79,9 +80,7 @@ def describe_df(df: Union[pd.DataFrame, pd.Series]) -> pd.DataFrame:
     if df.empty:
         raise ValueError("Input DataFrame is empty.")
 
-    with tqdm(
-        total=len(df.columns), desc="Describing DataFrame", unit="column"
-    ) as pbar:
+    with tqdm(total=len(df.columns), desc="Describing DataFrame", unit="column") as pbar:
         # Handle numerical features
         numeric_descr = [
             df[col].describe().apply("{0:.3f}".format)
@@ -89,8 +88,7 @@ def describe_df(df: Union[pd.DataFrame, pd.Series]) -> pd.DataFrame:
         ]
         # Handle categorical features
         non_numeric_descr = [
-            df[col].describe().apply(str)
-            for col in df.select_dtypes(exclude=np.number).columns
+            df[col].describe().apply(str) for col in df.select_dtypes(exclude=np.number).columns
         ]
 
         descr = numeric_descr + non_numeric_descr
@@ -135,14 +133,12 @@ def get_cat_counts(df: Union[pd.DataFrame, pd.Series]) -> pd.DataFrame:
             Unique value counts of the categorical features in the dataframe.
     """
 
-    if not isinstance(df):
+    if not is_df(df):
         raise TypeError("df must be a pandas DataFrame")
 
     cat_vars = get_cat_vars(df)
     counts = {var: df[var].value_counts().shape[0] for var in cat_vars}
-    return pd.DataFrame(
-        {"Feature": list(counts.keys()), "Unique Count": list(counts.values())}
-    )
+    return pd.DataFrame({"Feature": list(counts.keys()), "Unique Count": list(counts.values())})
 
 
 def one_hot_encode(df: pd.DataFrame, cols: List[str]) -> pd.DataFrame:
@@ -178,7 +174,8 @@ def one_hot_encode(df: pd.DataFrame, cols: List[str]) -> pd.DataFrame:
 
     return df
 
-def target_encode(df: pd.DataFrame, col:str, target_column:str) -> pd.DataFrame:
+
+def target_encode(df: pd.DataFrame, col: str, target_column: str) -> pd.DataFrame:
     """
     Perform target encoding on a categorical column in the DataFrame.
 
@@ -204,7 +201,7 @@ def target_encode(df: pd.DataFrame, col:str, target_column:str) -> pd.DataFrame:
         raise TypeError("col and target_column must be strings")
 
     target_mean = df.groupby(col)[target_column].mean()
-    df[col + '_encoded'] = df[col].map(target_mean)
+    df[col + "_encoded"] = df[col].map(target_mean)
 
     return df
 
@@ -231,13 +228,8 @@ def plot_feature_importance(
         The figure object containing the plot or None if show_plot is False.
     """
     if not hasattr(estimator, "feature_importances_"):
-        raise ValueError(
-            "The estimator does not have a 'feature_importances_' attribute."
-        )
-    if (
-        not isinstance(feature_names, list)
-        or len(feature_names) != estimator.n_features_
-    ):
+        raise ValueError("The estimator does not have a 'feature_importances_' attribute.")
+    if not isinstance(feature_names, list) or len(feature_names) != estimator.n_features_:
         raise ValueError(
             "The 'feature_names' argument should be a list of the same length as the number of features."
         )
@@ -246,9 +238,7 @@ def plot_feature_importance(
     feature_importances_df = pd.DataFrame(
         {"feature": feature_names, "importance": feature_importances}
     )
-    feature_importances_df = feature_importances_df.sort_values(
-        by="importance", ascending=False
-    )
+    feature_importances_df = feature_importances_df.sort_values(by="importance", ascending=False)
 
     fig, ax = plt.subplots()
     sns.barplot(x="importance", y="feature", data=feature_importances_df, ax=ax)
@@ -259,10 +249,10 @@ def plot_feature_importance(
     else:
         return fig
 
+    return None  # When show_plot is True
 
-def feature_summary(
-    df: Union[pd.DataFrame, pd.Series], visualize: bool = False
-) -> pd.DataFrame:
+
+def feature_summary(df: Union[pd.DataFrame, pd.Series], visualize: bool = False) -> pd.DataFrame:
     """
     Provides a summary of the features in a pandas DataFrame.
 
@@ -313,7 +303,12 @@ def feature_summary(
             summary_df.at[col, "Skewness"] = df[col].skew()
 
             if visualize and pd.api.types.is_numeric_dtype(df[col]):
-                fig, ax = plt.subplots(1, 2, figsize=(10, 5))
+                # fig, ax = plt.subplots(
+                #     1, 2, figsize=(10, 5)
+                # )  # noqa: F841 TODO: Include fig in the plt.subplots
+                ax = plt.subplots(
+                    1, 2, figsize=(10, 5)
+                )
                 ax[0].hist(df[col])
                 ax[0].set_xlabel(col)
                 ax[0].set_ylabel("Frequency")
@@ -321,15 +316,19 @@ def feature_summary(
                 ax[1].set_xlabel(col)
                 plt.show()
             elif visualize and pd.api.types.is_categorical_dtype(df[col]):
-                fig, ax = plt.subplots(1, 1, figsize=(10, 5))
+                # fig, ax = plt.subplots(
+                #     1, 1, figsize=(10, 5)
+                # )  # noqa: F841 TODO: Include fig in the plt.subplots
+                ax = plt.subplots(
+                    1, 2, figsize=(10, 5)
+                )
                 df[col].value_counts().plot(kind="bar", ax=ax)
                 ax.set_xlabel(col)
                 ax.set_ylabel("Frequency")
                 plt.show()
 
         summary_df.at[col, "Null"] = df[col].isnull().sum()
-
-    return summary_df, fig
+    return summary_df
 
 
 def display_missing(
@@ -395,6 +394,7 @@ def display_missing(
         plt.show()
     else:
         return dfs
+    return None
 
 
 def get_unique_counts(data: pd.DataFrame) -> pd.DataFrame:
@@ -414,10 +414,8 @@ def get_unique_counts(data: pd.DataFrame) -> pd.DataFrame:
     if data is None:
         raise ValueError("data: Expecting a DataFrame or Series, got 'None'")
 
-    if not is_df(data, (pd.DataFrame)):
-        raise TypeError(
-            "data: Expecting a DataFrame or Series, got '{}'".format(type(data))
-        )
+    if not is_df(data):
+        raise TypeError("data: Expecting a DataFrame or Series, got '{}'".format(type(data)))
 
     if isinstance(data, pd.Series):
         data = data.to_frame()
@@ -429,7 +427,9 @@ def get_unique_counts(data: pd.DataFrame) -> pd.DataFrame:
     return unique_counts
 
 
-def join_train_and_test(data_train: pd.DataFrame, data_test: pd.DataFrame) -> Tuple[pd.DataFrame, int, int]:
+def join_train_and_test(
+    data_train: pd.DataFrame, data_test: pd.DataFrame
+) -> Tuple[pd.DataFrame, int, int]:
     """
     Joins two data sets and returns a dictionary containing their sizes and the concatenated data.
     Used mostly before feature engineering to combine train and test set together.
@@ -455,9 +455,7 @@ def join_train_and_test(data_train: pd.DataFrame, data_test: pd.DataFrame) -> Tu
     if data_train is None or data_test is None:
         raise ValueError("Both 'data_train' and 'data_test' must be provided.")
 
-    if not is_df(data_train, pd.DataFrame) or not is_df(
-        data_test, pd.DataFrame
-    ):
+    if not is_df(data_train) or not is_df(data_test):
         raise TypeError("Both 'data_train' and 'data_test' should be DataFrames.")
 
     n_train = data_train.shape[0]
@@ -467,7 +465,12 @@ def join_train_and_test(data_train: pd.DataFrame, data_test: pd.DataFrame) -> Tu
     return all_data, n_train, n_test
 
 
-def check_train_test_set(train_data: pd.DataFrame, test_data: pd.DataFrame, index: Optional[str] = None, col: Optional[str] = None) -> None:
+def check_train_test_set(
+    train_data: pd.DataFrame,
+    test_data: pd.DataFrame,
+    index: Optional[str] = None,
+    col: Optional[str] = None,
+) -> None:
     """
     Checks the distribution of train and test for uniqueness to determine
     the best feature engineering strategy.
