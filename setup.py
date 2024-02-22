@@ -4,11 +4,12 @@ import os
 import subprocess
 import sys
 
-from setuptools import find_packages, setup
+try:
+    from setuptools import find_packages, setup
+except ImportError:
+    from distutils.core import find_packages, setup
 
-if sys.version_info < (3, 7):
-    sys.exit("Sorry, Python >= 3.7 is required")
-
+if sys.version_info < (3, 7):sys.exit("Sorry, Python >= 3.7 is required")
 
 def write_version_py():
     with open(os.path.join("dataramp", "version.txt")) as f:

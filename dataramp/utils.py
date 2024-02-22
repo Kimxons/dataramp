@@ -19,7 +19,6 @@ if platform.system() == "Darwin":
 else:
     plt.switch_backend("Agg")
 
-
 def is_df(obj: Union[pd.DataFrame, pd.Series]) -> bool:
     """
     Returns True if `obj` is a pandas DataFrame.
@@ -330,7 +329,7 @@ def feature_summary(
 
         summary_df.at[col, "Null"] = df[col].isnull().sum()
 
-    return summary_df
+    return summary_df, fig
 
 
 def display_missing(

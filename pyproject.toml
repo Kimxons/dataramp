@@ -1,3 +1,28 @@
-[build-system]
-requires = ["setuptools", "wheel", "cython"]
-build-backend = "setuptools.build_meta"
+[tool.black]
+line-length = 100
+target-version = ["py37"]
+
+[tool.mypy]
+strict = true
+
+[tool.pytest.ini_options]
+addopts = "-l"
+filterwarnings = [
+  # By default all warnings are treated as errors.
+  'error',
+  # Mixing threads and "fork()" is deprecated, but we need to test it anyway.
+  'ignore:.*use of fork\(\) may lead to deadlocks in the child.*:DeprecationWarning',
+  # The "dateutil" package used by "freezegun" relies on some deprecated APIs.
+  'ignore:.*datetime\.datetime\.utcfromtimestamp\(\) is deprecated.*:DeprecationWarning:dateutil.tz.tz'
+]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+exclude = ["tests/*"]
+
+[tool.typos.default]
+extend-ignore-re = ["(?Rm)^.*# spellchecker: disable-line$"]
+
+[tool.typos.files]
+extend-exclude = ["tests/output/**"]  # False positive due to ansi sequences.
