@@ -12,9 +12,18 @@ SUPPORTED_METHODS = {
 }
 
 
-def _get_home_path(filepath):
+def _get_home_path(filepath: str) -> str:
     """
     Helper function to get the project home path.
+
+    Args:
+        filepath (str): The filepath to check.
+
+    Returns:
+        str: The project home path.
+
+    Raises:
+        ValueError: If the filepath is empty or None.
     """
     if not filepath:
         raise ValueError("Empty or None filepath provided.")
