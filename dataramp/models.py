@@ -31,10 +31,10 @@ def switch_plotting_backend():
 
 
 def train_classifier(
-    X_train: Union[pd.DataFrame, np.ndarray],
+    x_train: Union[pd.DataFrame, np.ndarray],
     y_train: Union[pd.Series, np.ndarray],
     estimator: object,
-    X_val: Optional[Union[pd.DataFrame, np.ndarray]] = None,
+    x_val: Optional[Union[pd.DataFrame, np.ndarray]] = None,
     y_val: Optional[Union[pd.Series, np.ndarray]] = None,
     cross_validate: bool = False,
     cv: int = 5,
@@ -43,10 +43,10 @@ def train_classifier(
     Train a classification estimator and calculate numerous performance metrics.
 
     Args:
-        X_train: The feature set (X) to use in training an estimator to predict the outcome (y).
+        x_train: The feature set (X) to use in training an estimator to predict the outcome (y).
         y_train: The ground truth value for the training dataset.
         estimator: The estimator to be trained and evaluated.
-        X_val: The feature set (X) to use in validating a trained estimator (optional).
+        x_val: The feature set (X) to use in validating a trained estimator (optional).
         y_val: The ground truth value for the validation dataset (optional).
         cross_validate: Whether to use a cross-validation strategy.
         cv: Number of folds to use in cross-validation.
@@ -54,7 +54,7 @@ def train_classifier(
     Returns:
         dict: A dictionary containing various classification metrics.
     """
-    if any(arg is None for arg in [X_train, y_train, X_val, y_val]):
+    if any(arg is None for arg in [x_train, y_train, x_val, y_val]):
         raise ValueError("Some input arguments are None.")
 
     result_dict = {}
@@ -71,14 +71,14 @@ def train_classifier(
 
         for metric_name, scorer in scorers:
             cv_score = cross_val_score(
-                estimator, X_train, y_train, scoring=scorer, cv=cv
+                estimator, x_train, y_train, scoring=scorer, cv=cv
             )
             mean_score, std_score = cv_score.mean(), cv_score.std()
             result_dict[metric_name] = {"mean": mean_score, "std": std_score}
             print(f"{metric_name}: {mean_score:.4f} +/- {std_score:.4f}")
     else:
-        estimator.fit(X_train, y_train)
-        y_pred = estimator.predict(X_val)
+        estimator.fit(x_train, y_train)
+        y_pred = estimator.predict(x_val)
         classification_rep = classification_report(y_val, y_pred, output_dict=True)
         confusion_mat = confusion_matrix(y_val, y_pred)
 
@@ -90,7 +90,7 @@ def train_classifier(
 
         # ROC plot
         if hasattr(estimator, "predict_proba"):
-            y_pred_proba = estimator.predict_proba(X_val)[:, 1]
+            y_pred_proba = estimator.predict_proba(x_val)[:, 1]
             fpr, tpr, _ = roc_curve(y_val, y_pred_proba)
             roc_auc = roc_auc_score(y_val, y_pred_proba)
 

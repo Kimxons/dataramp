@@ -13,6 +13,12 @@ repos:
         language: system
         always_run: true
         pass_filenames: false
+      # - id: pylint
+      #   name: pylint
+      #   entry: env PYTHONPATH="." python3 -m pylint dataramp/
+      #   language: system
+      #   always_run: true
+      #   pass_filenames: false
       # - id: mypy
       #   name: mypy
       #   entry: mypy dataramp/ --strict-equality
