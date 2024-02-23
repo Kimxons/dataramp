@@ -9,7 +9,11 @@ try:
 except ImportError:
     from distutils.core import find_packages, setup
 
-if sys.version_info < (3, 7):sys.exit("Sorry, Python >= 3.7 is required")
+CURRENT_PYTHON = sys.version_info[:2]
+REQUIRED_PYTHON = (3, 7)
+
+if CURRENT_PYTHON < REQUIRED_PYTHON:
+    sys.exit("Sorry, Python {}.{}+ is required".format(*REQUIRED_PYTHON))
 
 def write_version_py():
     with open(os.path.join("dataramp", "version.txt")) as f:
