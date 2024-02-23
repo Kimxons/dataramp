@@ -19,25 +19,6 @@ if platform.system() == "Darwin":
 else:
     plt.switch_backend("Agg")
 
-
-def is_df(obj: Union[pd.DataFrame, pd.Series]) -> bool:
-    """
-    Returns True if `obj` is a pandas DataFrame.
-    Note that this function is simply doing `isinstance(obj, pd.DataFrame)`.
-    Using that `isinstance` check is better for typechecking with mypy,
-    and more explicit - so it's recommended to use that instead of `is_df`.
-
-    Args:
-        obj (Object): Object to test
-    Example::
-
-        >>> x = pd.DataFrame()
-        >>> is_df(x)
-        True
-    """
-    return isinstance(obj, pd.DataFrame)
-
-
 def get_num_vars(df: Union[pd.DataFrame, pd.Series]) -> list:
     """
     Returns the list of numerical features in a DataFrame or Series object.
@@ -52,13 +33,12 @@ def get_num_vars(df: Union[pd.DataFrame, pd.Series]) -> list:
     list
         The list of numerical feature column names in the input DataFrame or Series object.
     """
-    if not is_df(df):
+    if not isinstance(df, (pd.DataFrame, pd.Series)):
         raise TypeError("df must be a pandas DataFrame or Series")
 
     num_vars = df.select_dtypes(include=np.number).columns.tolist()
 
     return num_vars
-
 
 def describe_df(df: Union[pd.DataFrame, pd.Series]) -> pd.DataFrame:
     """
@@ -74,19 +54,17 @@ def describe_df(df: Union[pd.DataFrame, pd.Series]) -> pd.DataFrame:
     pandas DataFrame
         A DataFrame containing the descriptions of the input DataFrame or Series.
     """
-    if not isinstance(df, pd.DataFrame):
+    if not isinstance(df, (pd.DataFrame, pd.Series)):
         raise TypeError("df must be a pandas DataFrame")
 
     if df.empty:
         raise ValueError("Input DataFrame is empty.")
 
     with tqdm(total=len(df.columns), desc="Describing DataFrame", unit="column") as pbar:
-        # Handle numerical features
         numeric_descr = [
             df[col].describe().apply("{0:.3f}".format)
             for col in df.select_dtypes(include=np.number).columns
         ]
-        # Handle categorical features
         non_numeric_descr = [
             df[col].describe().apply(str) for col in df.select_dtypes(exclude=np.number).columns
         ]
@@ -113,7 +91,7 @@ def get_cat_vars(df: Union[pd.DataFrame, pd.Series]) -> list:
     list
         The list of categorical feature column names in the input DataFrame or Series object.
     """
-    if not isinstance(df, pd.DataFrame):
+    if not isinstance(df, (pd.DataFrame, pd.Series)):
         raise TypeError("df must be a pandas DataFrame or Series")
 
     cat_vars = df.select_dtypes(include="object").columns.tolist()
@@ -132,8 +110,7 @@ def get_cat_counts(df: Union[pd.DataFrame, pd.Series]) -> pd.DataFrame:
         pandas DataFrame
             Unique value counts of the categorical features in the dataframe.
     """
-
-    if not is_df(df):
+    if not isinstance(df, (pd.DataFrame, pd.Series)):
         raise TypeError("df must be a pandas DataFrame")
 
     cat_vars = get_cat_vars(df)
@@ -157,7 +134,7 @@ def one_hot_encode(df: pd.DataFrame, cols: List[str]) -> pd.DataFrame:
     pandas DataFrame
         The DataFrame with one-hot encoded columns.
     """
-    if not is_df(df):
+    if not isinstance(df, (pd.DateOffset, pd.Series)):
         raise TypeError("df must be a pandas DataFrame")
 
     if not isinstance(cols, list):
@@ -194,7 +171,7 @@ def target_encode(df: pd.DataFrame, col: str, target_column: str) -> pd.DataFram
         The DataFrame with the categorical column replaced by target encoding.
     """
 
-    if not is_df(df):
+    if not isinstance(df, (pd.DataFrame, pd.DataFrame)):
         raise TypeError("df must be a pandas DataFrame")
 
     if not isinstance(col, str) or not isinstance(target_column, str):
@@ -272,7 +249,7 @@ def feature_summary(df: Union[pd.DataFrame, pd.Series], visualize: bool = False)
     if df is None:
         raise ValueError("Expected a pandas dataframe, but got None")
 
-    if not isinstance(df, pd.DataFrame):
+    if not isinstance(df, (pd.DataFrame, pd.Series)):
         raise TypeError("df must be a pandas DataFrame")
 
     summary_df = pd.DataFrame(
@@ -364,7 +341,7 @@ def display_missing(
     if df is None:
         raise ValueError("Expected a pandas DataFrame, but got None")
 
-    if not isinstance(df, pd.DataFrame):
+    if not isinstance(df, (pd.DataFrame, pd.Series)):
         raise TypeError("df must be a pandas DataFrame")
 
     dfs = (
@@ -414,7 +391,7 @@ def get_unique_counts(data: pd.DataFrame) -> pd.DataFrame:
     if data is None:
         raise ValueError("data: Expecting a DataFrame or Series, got 'None'")
 
-    if not is_df(data):
+    if not isinstance(data, (pd.DataFrame, pd.Series)):
         raise TypeError("data: Expecting a DataFrame or Series, got '{}'".format(type(data)))
 
     if isinstance(data, pd.Series):
@@ -455,7 +432,7 @@ def join_train_and_test(
     if data_train is None or data_test is None:
         raise ValueError("Both 'data_train' and 'data_test' must be provided.")
 
-    if not is_df(data_train) or not is_df(data_test):
+    if not isinstance(data_train) or not isinstance(data_test):
         raise TypeError("Both 'data_train' and 'data_test' should be DataFrames.")
 
     n_train = data_train.shape[0]
