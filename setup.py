@@ -1,8 +1,11 @@
 #!/usr/bin/env python
 
+from __future__ import print_function
+
 import os
 import subprocess
 import sys
+import pypandoc
 
 try:
     from setuptools import find_packages, setup
@@ -35,8 +38,28 @@ def write_version_py():
         f.write('__version__ = "{}"\n'.format(version))
     return version
 
+def read_file(path):
+    # if this fails on windows then add the following environment variable (PYTHONUTF8=1)
+    with open(path) as contents:
+        return contents.read()
+
 
 version = write_version_py()
+
+# Packages required for this module to be executed
+def list_reqs(fname='requirements_dev.txt'):
+    with open(fname) as fd:
+        return fd.read().splitlines()
+
+# Convert Markdown to RST for PyPI
+# http://stackoverflow.com/a/26737672
+try:
+    pypandoc_func = (
+        pypandoc.convert_file if hasattr(pypandoc, "convert_file") else pypandoc.convert
+    )
+    long_description = pypandoc_func("README.md", "rst")
+except (IOError, ImportError, OSError):
+    long_description = read_file("README.md")
 
 with open("README.md") as f:
     long_description = f.read()

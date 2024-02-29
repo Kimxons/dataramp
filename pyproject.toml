@@ -1,28 +1,200 @@
-[tool.black]
-line-length = 100
-target-version = ["py37"]
-
-[tool.mypy]
-strict = true
-
-[tool.pytest.ini_options]
-addopts = "-l"
-filterwarnings = [
-  # By default all warnings are treated as errors.
-  'error',
-  # Mixing threads and "fork()" is deprecated, but we need to test it anyway.
-  'ignore:.*use of fork\(\) may lead to deadlocks in the child.*:DeprecationWarning',
-  # The "dateutil" package used by "freezegun" relies on some deprecated APIs.
-  'ignore:.*datetime\.datetime\.utcfromtimestamp\(\) is deprecated.*:DeprecationWarning:dateutil.tz.tz'
+[project]
+name = "dataramp"
+readme = "README.md"
+description = "A Data science library for data science / data analysis teams"
+dynamic = ["version"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Science/Research",
+    "Intended Audience :: Developers",
+    "Topic :: Software Development",
+    "Topic :: Scientific/Engineering",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.7",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
 ]
-testpaths = ["tests"]
+authors = [
+    {name="Meshack Kitonga", email="kitongameshack9@gmail.com"}
+]
+maintainers = [
+    {name="Alteryx, Inc.", email="kitongameshack9@gmail.com"}
+]
+keywords = ["data science", "machine learning"]
+license = {file = "LICENSE"}
+requires-python = ">=3.7,<4"
+dependencies = [
+    "numpy >= 1.22.0",
+    "pandas >= 1.5.0, < 2.1.0",
+    "scipy >= 1.5.0, < 1.12.0",
+    "scikit-learn >= 1.3.0",
+    "scikit-optimize >= 0.9.0",
+    "pyzmq >= 20.0.0",
+    "colorama >= 0.4.4",
+    "cloudpickle >= 1.5.0",
+    "click >= 8.0.0",
+    "shap >= 0.42.0",
+    "statsmodels >= 0.12.2",
+    "texttable >= 1.6.2",
+    "woodwork[dask] >= 0.22.0",
+    "dask >= 2022.2.0, != 2022.10.1",
+    "distributed >= 2022.2.0, != 2022.10.1",
+    "featuretools[dask] >= 1.16.0",
+    "nlp-primitives >= 2.9.0",
+    "networkx >= 2.6, <3.2",
+    "plotly >= 5.0.0",
+    "kaleido == 0.1.0",
+    "ipywidgets >= 7.5",
+    "xgboost >= 1.7.0.post0",
+    "catboost >= 1.1.1",
+    "lightgbm >= 4.0.0",
+    "matplotlib >= 3.3.3",
+    "graphviz >= 0.13; platform_system!='Windows'",
+    "seaborn >= 0.11.1",
+    "category-encoders >= 2.2.2, <= 2.5.1.post0",
+    "imbalanced-learn >= 0.11.0",
+    "pmdarima >= 1.8.5",
+    "sktime >= 0.21.0",
+    "lime >= 0.2.0.1",
+    "vowpalwabbit >= 8.11.0",
+    "tomli >= 2.0.1",
+    "packaging >= 23.0",
+    "black[jupyter] >= 22.3.0",
+    "holidays >= 0.13, < 0.21"
+]
+
+[project.urls]
+"Documentation" = "https://github.com/dataramp"
+"Source Code"= "https://github.com/dataramp"
+"Changes" = "https://github.com/dataramp/en/latest/release_notes.html"
+"Issue Tracker" = "https://github.com/dataramp/issues"
+
+[project.optional-dependencies]
+test = [
+    "pytest == 7.1.2",
+    "pytest-xdist == 2.1.0",
+    "pytest-timeout == 1.4.2",
+    "pytest-cov == 2.10.1",
+    "nbval == 0.9.3",
+    "IPython >= 8.10.0, <8.12.1",
+    "PyYAML == 5.4",
+    "coverage[toml] >= 6.4",
+]
+dev = [
+    "ruff == 0.0.228",
+    "darglint == 1.8.0",
+    "pre-commit >= 2.20.0",
+    "evalml[docs,test]",
+]
+
+docs = [
+    "docutils >=0.15.2, < 0.17",
+    "pydata-sphinx-theme >= 0.3.1",
+    "astroid <= 2.6.6",
+    "Sphinx >= 4.5.0",
+    "nbconvert >= 6.4.5",
+    "nbsphinx >= 0.8.5, < 0.9.0",
+    "sphinx-autoapi",
+    "sphinx-inline-tabs == 2022.1.2b11",
+    "sphinx-copybutton == 0.4.0",
+    "myst-parser == 0.16.1",
+]
+prophet = [
+    "prophet >= 1.1.2",
+]
+
+[tool.setuptools]
+include-package-data = true
+license-files = ["LICENSE"]
+
+[tool.setuptools.packages.find]
+namespaces = true
+
+[tool.setuptools.package-data]
+"*" = [
+    "*.txt",
+    "README.md",
+]
+"dataramp" = [
+    "demos/data/churn.csv",
+    "demos/data/daily-min-temperatures.csv",
+    "demos/data/fraud_transactions.csv.gz",
+    "tests/data/churn.csv",
+    "tests/data/daily-min-temperatures.csv",
+    "tests/data/fraud_transactions.csv.gz",
+    "tests/data/tips.csv",
+    "tests/data/titanic.csv",
+]
+
+[tool.setuptools.exclude-package-data]
+"*" = [
+    "* __pycache__",
+    "*.py[co]",
+    "docs/*"
+]
+
+[tool.setuptools.dynamic]
+version = {attr = "dataramp.__version__"}
+
+[tool.black]
+line-length = 88
+target-version = ["py39"]
 
 [tool.ruff]
-line-length = 100
-exclude = ["tests/*"]
+line-length = 88
+select = [
+    "D",
+    # Pyflakes
+    "F",
+    # Pycodestyle
+    "E",
+    "W",
+    # isort
+    "I001"
+]
+ignore = ["E501", "D107", "D401"]
+src = ["dataramp"]
 
-[tool.typos.default]
-extend-ignore-re = ["(?Rm)^.*# spellchecker: disable-line$"]
+[tool.ruff.per-file-ignores]
+"__init__.py" = ["E402", "F401", "I001", "E501"]
+"evalml/tests/**" = ["D"]
+"evalml/utils/**" = ["D"]
+".github/**" = ["D"]
+"docs/**" = ["D"]
 
-[tool.typos.files]
-extend-exclude = ["tests/output/**"]  # False positive due to ansi sequences.
+[tool.ruff.isort]
+known-first-party = ["dataramp"]
+
+[tool.ruff.pydocstyle]
+convention = "google"
+
+[tool.coverage.run]
+source = ["evalml"]
+
+[tool.coverage.report]
+exclude_lines =[
+    "pragma: no cover",
+    "raise AssertionError",
+    "if __name__ == .__main__.:",
+    "if profile:",
+    "pytest.skip"
+]
+
+[build-system]
+requires = [
+    "setuptools >= 61.0.0",
+    "wheel"
+]
+build-backend = "setuptools.build_meta"
+
+[tool.pytest.ini_options]
+testpaths = [
+    "evalml/tests/*"
+]
+filterwarnings = [
+    "ignore::DeprecationWarning",
+    "ignore::PendingDeprecationWarning"
+]
+junit_duration_report = "call"
