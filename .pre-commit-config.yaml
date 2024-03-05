@@ -1,18 +1,64 @@
+default_language_version:
+  python: python3.11
+
 repos:
   - repo: local
     hooks:
       - id: whitespace
-        name: strip whitespace
+        name: Strip trailing whitespace
         entry: ./strip_whitespaces.sh
         language: system
         always_run: true
         pass_filenames: false
       - id: ruff
-        name: ruff
+        name: Format code with Ruff
         entry: ruff . --preview
         language: system
         always_run: true
         pass_filenames: false
+      # - id: isort
+      #   name: Sort imports with isort
+      #   args:
+      #     [
+      #       "--profile=black",
+      #       "--py=39",
+      #       "--line-length=120",
+      #       "--multi-line=3",
+      #       "--trailing-comma",
+      #       "--force-grid-wrap=0",
+      #       "--use-parentheses",
+      #       "--ensure-newline-before-comments",
+      #       "--project=CORE,src,config,preprocess,train,transform,main,model",
+      #     ]
+    # - repo: https://github.com/pre-commit/pre-commit-hooks
+    #   rev: v4.1.0
+    #   hooks:
+    #     # - id: check-yaml
+    #     #   name: Validate YAML syntax
+    #     #   args: ["--allow-multiple-documents", "--unsafe"]
+    #     - id: end-of-file-fixer
+    #       name: Ensure files end with a newline
+    #     - id: trailing-whitespace
+    #       name: Remove trailing whitespace
+    #     - id: check-docstring-first
+    #       name: Check for docstring presence
+    #     - id: check-toml
+    #       name: Validate TOML syntax
+    #     - id: check-added-large-files
+    #       name: Check for large files
+    #       args: ["--maxkb=1024"]
+    #     - id: requirements-txt-fixer
+    #       name: Fix requirements.txt formatting
+    #     - id: check-merge-conflict
+    #       name: Check for merge conflicts
+    #     - id: debug-statements
+    #       name: Check for debug statements
+    #     - id: pretty-format-json
+    #       name: Format JSON files
+    #       args:
+    #         - "--autofix"
+    #         - "--indent=2"
+
       # - id: pylint
       #   name: pylint
       #   entry: env PYTHONPATH="." python3 -m pylint dataramp/

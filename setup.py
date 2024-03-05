@@ -46,9 +46,9 @@ def read_file(path):
 
 version = write_version_py()
 
-# Packages required for this module to be executed
+# Read the contents of the requirements_dev file
 def list_reqs(fname='requirements_dev.txt'):
-    with open(fname) as fd:
+    with open(fname, encoding='utf-8') as fd:
         return fd.read().splitlines()
 
 # Convert Markdown to RST for PyPI
