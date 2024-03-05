@@ -16,20 +16,23 @@ repos:
         language: system
         always_run: true
         pass_filenames: false
-      # - id: isort
-      #   name: Sort imports with isort
-      #   args:
-      #     [
-      #       "--profile=black",
-      #       "--py=39",
-      #       "--line-length=120",
-      #       "--multi-line=3",
-      #       "--trailing-comma",
-      #       "--force-grid-wrap=0",
-      #       "--use-parentheses",
-      #       "--ensure-newline-before-comments",
-      #       "--project=CORE,src,config,preprocess,train,transform,main,model",
-      #     ]
+      - id: isort
+        name: Format code with isort
+        entry: isort
+        language: system
+        always_run: true
+        args:
+          [
+            "--profile=black",
+            "--py=311",
+            "--line-length=120",
+            "--multi-line=3",
+            "--trailing-comma",
+            "--force-grid-wrap=0",
+            "--use-parentheses",
+            "--ensure-newline-before-comments",
+            "--project=dataraamp",
+          ]
     # - repo: https://github.com/pre-commit/pre-commit-hooks
     #   rev: v4.1.0
     #   hooks:

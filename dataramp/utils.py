@@ -1,14 +1,14 @@
 from __future__ import annotations
 
 import platform
-from typing import List, Optional, Union, Tuple
+from typing import List, Optional, Tuple, Union
 
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import seaborn as sns
-from tqdm import tqdm
 from sklearn.preprocessing import OneHotEncoder
+from tqdm import tqdm
 
 """
 Feature Engineering: Transform, Binning Temporal, Image Feature selection. Also feature extraction comes into play here.
