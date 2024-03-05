@@ -31,43 +31,19 @@ repos:
             "--force-grid-wrap=0",
             "--use-parentheses",
             "--ensure-newline-before-comments",
-            "--project=dataraamp",
+            "--project=dataramp",
           ]
-    # - repo: https://github.com/pre-commit/pre-commit-hooks
-    #   rev: v4.1.0
-    #   hooks:
-    #     # - id: check-yaml
-    #     #   name: Validate YAML syntax
-    #     #   args: ["--allow-multiple-documents", "--unsafe"]
-    #     - id: end-of-file-fixer
-    #       name: Ensure files end with a newline
-    #     - id: trailing-whitespace
-    #       name: Remove trailing whitespace
-    #     - id: check-docstring-first
-    #       name: Check for docstring presence
-    #     - id: check-toml
-    #       name: Validate TOML syntax
-    #     - id: check-added-large-files
-    #       name: Check for large files
-    #       args: ["--maxkb=1024"]
-    #     - id: requirements-txt-fixer
-    #       name: Fix requirements.txt formatting
-    #     - id: check-merge-conflict
-    #       name: Check for merge conflicts
-    #     - id: debug-statements
-    #       name: Check for debug statements
-    #     - id: pretty-format-json
-    #       name: Format JSON files
-    #       args:
-    #         - "--autofix"
-    #         - "--indent=2"
-
       # - id: pylint
-      #   name: pylint
-      #   entry: env PYTHONPATH="." python3 -m pylint dataramp/
+      #   name: Lint code
+      #   entry: python3 -m pylint dataramp/
       #   language: system
       #   always_run: true
       #   pass_filenames: false
+      #   args:
+      #     [
+      #       "--disable=missing-docstring",
+      #       "--max-line-length=120",
+      #     ]
       # - id: mypy
       #   name: mypy
       #   entry: mypy dataramp/ --strict-equality
