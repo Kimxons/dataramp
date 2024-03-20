@@ -63,7 +63,7 @@ def _get_path(dir=None):
             except json.JSONDecodeError as e:
                 raise ValueError(
                     f"Error decoding JSON in config file {config_path}: {e}"
-                )
+                ) from e
 
         if dir not in config:
             raise KeyError(f"No key {dir} in config file {config_path}")
@@ -71,7 +71,7 @@ def _get_path(dir=None):
         path = os.path.join(homedir, config[dir].replace("/", os.path.sep))
         return path
     except Exception as e:
-        raise ValueError(f"Error in _get_path: {e}")
+        raise ValueError(f"Error in _get_path: {e}") from e
 
 
 def create_directory(path: Path):
