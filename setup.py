@@ -2,7 +2,9 @@
 
 from __future__ import print_function
 
+import contextlib
 import os
+import pathlib
 import subprocess
 import sys
 
@@ -23,27 +25,22 @@ def write_version_py():
     with open(os.path.join("dataramp", "version.txt")) as f:
         version = f.read().strip()
 
-    try:
-        num_commits = (
+    with contextlib.suppress(Exception): # TODO: Change this handle exceptions appropriately not to suppress them
+        if num_commits := (
             subprocess.check_output(["git", "rev-list", "--count", "HEAD"])
             .decode("ascii")
             .strip()
-        )
-        if num_commits:
+        ):
             version += f".dev{num_commits}"
-    except Exception:
-        pass
-
     # Write version info to dataramp/version.py
     with open(os.path.join("dataramp", "version.py"), "w") as f:
-        f.write('__version__ = "{}"\n'.format(version))
+        f.write(f'__version__ = "{version}"\n')
     return version
 
 def read_file(path):
     # if this fails on windows then add the following environment variable (PYTHONUTF8=1)
     with open(path) as contents:
         return contents.read()
-
 
 version = write_version_py()
 
@@ -53,7 +50,8 @@ def list_reqs(fname='requirements_dev.txt'):
         return fd.read().splitlines()
 
 # Convert Markdown to RST for PyPI
-# http://stackoverflow.com/a/26737672
+# Credits: http://stackoverflow.com/a/26737672
+
 try:
     pypandoc_func = (
         pypandoc.convert_file if hasattr(pypandoc, "convert_file") else pypandoc.convert
@@ -62,8 +60,7 @@ try:
 except (IOError, ImportError, OSError):
     long_description = read_file("README.md")
 
-with open("README.md") as f:
-    long_description = f.read()
+long_description = pathlib.Path("README.md").read_text()
 
 setup(
     name="dataramp",
