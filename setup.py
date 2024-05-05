@@ -56,11 +56,11 @@ try:
     pypandoc_func = (
         pypandoc.convert_file if hasattr(pypandoc, "convert_file") else pypandoc.convert
     )
-    long_description = pypandoc_func("README.md", "rst")
+    long_description = pypandoc_func("README.rst", "rst")
 except (IOError, ImportError, OSError):
-    long_description = read_file("README.md")
+    long_description = read_file("README.rst")
 
-long_description = pathlib.Path("README.md").read_text()
+long_description = pathlib.Path("README.rst").read_text()
 
 setup(
     name="dataramp",
