@@ -13,18 +13,6 @@ SUPPORTED_METHODS = {
 
 
 def _get_home_path(filepath: str) -> str:
-    """
-    Helper function to get the project home path.
-
-    Args:
-        filepath (str): The filepath to check.
-
-    Returns:
-        str: The project home path.
-
-    Raises:
-        ValueError: If the filepath is empty or None.
-    """
     if not filepath:
         raise ValueError("Empty or None filepath provided.")
 
@@ -47,9 +35,6 @@ def _get_home_path(filepath: str) -> str:
 
 
 def _get_path(dir=None):
-    """
-    Helper function to get a path from the project configuration file.
-    """
     try:
         homedir = _get_home_path(os.getcwd())
         config_path = os.path.join(homedir, "config.txt")
@@ -80,15 +65,6 @@ def create_directory(path: Path):
 
 
 def create_project(project_name: str):
-    """
-    Creates a standard data science project directory structure.
-
-    Parameters:
-        project_name (str): Name of the directory to contain folders.
-
-    Returns:
-        None
-    """
     # Create project directories
     base_path = Path.cwd() / project_name
     data_path = base_path / "datasets"
@@ -135,20 +111,6 @@ def create_project(project_name: str):
 
 
 def model_save(model, name="model", method="joblib"):
-    """
-    Save a trained machine learning model in the models folder.
-
-    Parameters:
-        model: binary file, Python object
-            Trained model file to save in the models folder.
-        name: str, optional (default='model')
-            Name of the model to save it with.
-        method: str, optional (default='joblib')
-            Format to use in saving the model. It can be one of ['joblib', 'pickle', 'keras'].
-
-    Returns:
-        None
-    """
     if model is None:
         raise ValueError("Expecting a binary model file, got 'None'")
 
