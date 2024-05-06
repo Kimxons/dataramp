@@ -1,7 +1,7 @@
 import os
 import platform
 import sys
-from typing import Optional, Union
+from typing import Callable, Dict, Optional, Union
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -38,22 +38,11 @@ def train_classifier(
     y_val: Optional[Union[pd.Series, np.ndarray]] = None,
     cross_validate: bool = False,
     cv: int = 5,
+    custom_metrics: Optional[Dict[str, Callable]] = None,
+    callbacks: Optional[Dict[str, Callable]] = None,
+    aggregation: str = "mean",
+    plot_options: Optional[Dict[str, str]] = None,
 ) -> dict:
-    """
-    Train a classification estimator and calculate numerous performance metrics.
-
-    Args:
-        x_train: The feature set (X) to use in training an estimator to predict the outcome (y).
-        y_train: The ground truth value for the training dataset.
-        estimator: The estimator to be trained and evaluated.
-        x_val: The feature set (X) to use in validating a trained estimator (optional).
-        y_val: The ground truth value for the validation dataset (optional).
-        cross_validate: Whether to use a cross-validation strategy.
-        cv: Number of folds to use in cross-validation.
-
-    Returns:
-        dict: A dictionary containing various classification metrics.
-    """
     if any(arg is None for arg in [x_train, y_train, x_val, y_val]):
         raise ValueError("Some input arguments are None.")
 
@@ -62,20 +51,33 @@ def train_classifier(
     switch_plotting_backend()
 
     if cross_validate:
-        scorers = [
-            ("Accuracy", accuracy_score),
-            ("F1-score", f1_score),
-            ("Precision", precision_score),
-            ("Recall", recall_score),
-        ]
+        scorers = {
+            "Accuracy": accuracy_score,
+            "F1-score": f1_score,
+            "Precision": precision_score,
+            "Recall": recall_score,
+        }
 
-        for metric_name, scorer in scorers:
+        if custom_metrics:
+            scorers |= custom_metrics
+
+        cv_scores = {}
+
+        for metric_name, scorer in scorers.items():
             cv_score = cross_val_score(
                 estimator, x_train, y_train, scoring=scorer, cv=cv
             )
-            mean_score, std_score = cv_score.mean(), cv_score.std()
-            result_dict[metric_name] = {"mean": mean_score, "std": std_score}
+            if aggregation == "mean":
+                mean_score, std_score = cv_score.mean(), cv_score.std()
+            elif aggregation == "weighted":
+                mean_score, std_score = np.average(cv_score, weights=len(cv_score)), np.std(cv_score)
+            else:
+                raise ValueError("Invalid aggregation method. Choose 'mean' or 'weighted'.")
+
+            cv_scores[metric_name] = {"mean": mean_score, "std": std_score}
             print(f"{metric_name}: {mean_score:.4f} +/- {std_score:.4f}")
+
+        result_dict["cross_validation_scores"] = cv_scores
     else:
         estimator.fit(x_train, y_train)
         y_pred = estimator.predict(x_val)
@@ -104,5 +106,16 @@ def train_classifier(
             plt.legend()
 
             result_dict["roc_auc"] = roc_auc
+
+            if plot_options:
+                for key, value in plot_options.items():
+                    plt.set(key, value)
+
+            plt.show()
+
+    # Callbacks
+    if callbacks:
+        for callback_name, callback_func in callbacks.items():
+            callback_func(result_dict)
 
     return result_dict
