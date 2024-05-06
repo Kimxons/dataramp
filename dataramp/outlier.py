@@ -1,3 +1,4 @@
+import logging
 import numbers
 from typing import Tuple, Union
 
@@ -5,6 +6,7 @@ import numpy as np
 from sklearn.base import BaseEstimator
 from sklearn.exceptions import NotFittedError
 
+logger = logging.getLogger(__name__)
 
 class OutlierDetector:
     """Base class for all outlier detectors."""
@@ -12,6 +14,15 @@ class OutlierDetector:
     def __init__(self):
         self._support = None
         self._is_fitted = False
+
+    @property
+    def support(self):
+        """Outlier support mask."""
+        if not self._is_fitted:
+            raise NotFittedError(
+                f"This {self.__class__.__name__} instance is not fitted yet. Call 'fit' with appropriate arguments."
+            )
+        return self._support.copy()
 
     def fit(self, x, y=None):
         """Fit outlier detector.
@@ -29,7 +40,12 @@ class OutlierDetector:
             Returns an instance of the outlier detector.
         """
         self._fit(x, y)
+        self._is_fitted = True
         return self
+
+    def _fit(self, x, y=None):
+        """Internal method for fitting the outlier detector."""
+        raise NotImplementedError("Subclasses must implement _fit method.")
 
     def get_outliers(
         self, indices: bool = False
@@ -46,10 +62,6 @@ class OutlierDetector:
         outliers : np.ndarray or Tuple[np.ndarray, np.ndarray]
             Array of indices or boolean mask indicating outliers.
         """
-        if not self._is_fitted:
-            raise NotFittedError(
-                f"This {self.__class__.__name__} instance is not fitted yet. Call 'fit' with appropriate arguments."
-            )
         return (np.where(self._support)[0],) if indices else self._support
 
 
@@ -89,9 +101,7 @@ class RangeDetector(BaseEstimator, OutlierDetector):
             or not 0 <= self.interval_length <= 1
         ):
             raise ValueError(
-                "Interval length must a value in [0, 1]; got {}.".format(
-                    self.interval_length
-                )
+                f"Interval length must a value in [0, 1]; got {self.interval_length}."
             )
 
         if self.method == "ETI":
@@ -117,5 +127,3 @@ class RangeDetector(BaseEstimator, OutlierDetector):
         upper_bound = ub + self.k * iqr
 
         self._support = (x > upper_bound) | (x < lower_bound)
-
-        self._is_fitted = True
