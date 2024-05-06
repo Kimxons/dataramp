@@ -32,7 +32,7 @@ def write_version_py():
             .strip()
         ):
             version += f".dev{num_commits}"
-    # Write version info to dataramp/version.py
+    # To write version info to dataramp/version.py
     with open(os.path.join("dataramp", "version.py"), "w") as f:
         f.write(f'__version__ = "{version}"\n')
     return version

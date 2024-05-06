@@ -21,4 +21,5 @@ line-length = 150
 exclude = [
 #   "docs/",
   "examples/",
+  "docs/"
 ]
