@@ -105,7 +105,7 @@ def create_project(project_name: str):
     with open(config_path, "w") as config_file:
         json.dump(config, config_file, indent=4)
 
-    readme_path = base_path / "README.md"
+    readme_path = base_path / "README.rst"
     with open(readme_path, "w") as readme:
         readme.write("Creates a standard data science project directory structure.")
 
@@ -120,19 +120,19 @@ def model_save(model, name="model", method="joblib"):
         )
 
     try:
-        model_path = _get_path("modelpath")
-        filename = f"{model_path}/{name}.{method}"
+        model_path = _get_path("model_path")
+        file_name = f"{model_path}/{name}.{method}"
 
-        SUPPORTED_METHODS[method](model, filename)
+        SUPPORTED_METHODS[method](model, file_name)
 
     except FileNotFoundError:
         print(
             f"Models folder does not exist. Saving model to the {name} folder. "
             f"It is recommended that you start your project using datahelp's start_project function"
         )
-        filename = f"{name}.{method}"
+        file_name = f"{name}.{method}"
 
-        SUPPORTED_METHODS[method](model, filename)
+        SUPPORTED_METHODS[method](model, file_name)
 
     except PermissionError as e:
         print(f"Permission error while saving model. Check file permissions. {e}")

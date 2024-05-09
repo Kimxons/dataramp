@@ -1,1 +1,0 @@
-Creates a standard data science project directory structure.
