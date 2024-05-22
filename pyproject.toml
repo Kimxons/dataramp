@@ -1,20 +1,19 @@
 [project]
 name = "dataramp"
-readme = "README.md"
 description = "A Data science library for data science / data analysis teams"
+readme = "README.rst"
 dynamic = ["version"]
 classifiers = [
-    "Development Status :: 4 - Beta",
+    "Development Status :: 2 - Beta",
     "Intended Audience :: Science/Research",
     "Intended Audience :: Developers",
     "Topic :: Software Development",
-    "Topic :: Scientific/Engineering",
     "Programming Language :: Python",
-    "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.7",
     "Programming Language :: Python :: 3.8",
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
 ]
 authors = [
     {name="Meshack Kitonga", email="kitongameshack9@gmail.com"}
@@ -66,7 +65,6 @@ dev = [
     "pre-commit >= 2.20.0",
     "dataramp[docs,test]",
 ]
-
 docs = [
     "docutils >=0.15.2, < 0.17",
     "pydata-sphinx-theme >= 0.3.1",
@@ -95,9 +93,10 @@ namespaces = true
     "*.txt",
     "README.rst",
 ]
+
 [tool.setuptools.exclude-package-data]
 "*" = [
-    "* __pycache__",
+    "__pycache__/*",
     "*.py[co]",
     "docs/*"
 ]
@@ -113,12 +112,9 @@ target-version = ["py39"]
 line-length = 88
 select = [
     "D",
-    # Pyflakes
     "F",
-    # Pycodestyle
     "E",
     "W",
-    # isort
     "I001"
 ]
 ignore = ["E501", "D107", "D401"]
@@ -141,7 +137,7 @@ convention = "google"
 source = ["dataramp"]
 
 [tool.coverage.report]
-exclude_lines =[
+exclude_lines = [
     "pragma: no cover",
     "raise AssertionError",
     "if __name__ == .__main__.:",
