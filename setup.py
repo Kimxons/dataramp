@@ -22,51 +22,45 @@ if CURRENT_PYTHON < REQUIRED_PYTHON:
     sys.exit("Sorry, Python {}.{}+ is required".format(*REQUIRED_PYTHON))
 
 def write_version_py():
-    version = ""
-    try:
-        with open(os.path.join("dataramp", "version.txt")) as f:
-            version = f.read().strip()
-    except FileNotFoundError:
-        sys.exit("version.txt not found!")
+    with open(os.path.join("dataramp", "version.txt")) as f:
+        version = f.read().strip()
 
-    try:
-        if (
-            num_commits := subprocess.check_output(
-                ["git", "rev-list", "--count", "HEAD"]
-            )
+    with contextlib.suppress(Exception): # TODO: Change this handle exceptions appropriately not to suppress them
+        if num_commits := (
+            subprocess.check_output(["git", "rev-list", "--count", "HEAD"])
             .decode("ascii")
             .strip()
         ):
             version += f".dev{num_commits}"
-    except subprocess.CalledProcessError:
-        print("Git command failed, version without commit count used.")
-
+    # To write version info to dataramp/version.py
     with open(os.path.join("dataramp", "version.py"), "w") as f:
         f.write(f'__version__ = "{version}"\n')
     return version
 
 def read_file(path):
-    with open(path, encoding='utf-8') as contents:
+    # if this fails on windows then add the following environment variable (PYTHONUTF8=1)
+    with open(path) as contents:
         return contents.read()
 
 version = write_version_py()
 
+# Read the contents of the requirements_dev file
 def list_reqs(fname='requirements_dev.txt'):
     with open(fname, encoding='utf-8') as fd:
         return fd.read().splitlines()
 
-def get_long_description():
-    with contextlib.suppress(IOError, ImportError, OSError):
-        if pathlib.Path("README.md").exists():
-            pypandoc_func = (
-                pypandoc.convert_file if hasattr(pypandoc, "convert_file") else pypandoc.convert
-            )
-            return pypandoc_func("README.md", "rst")
-        elif pathlib.Path("README.rst").exists():
-            return pathlib.Path("README.rst").read_text(encoding='utf-8')
-    return ""
+# Convert Markdown to RST for PyPI
+# Credits: http://stackoverflow.com/a/26737672
 
-long_description = get_long_description()
+try:
+    pypandoc_func = (
+        pypandoc.convert_file if hasattr(pypandoc, "convert_file") else pypandoc.convert
+    )
+    long_description = pypandoc_func("README.md", "rst")
+except (IOError, ImportError, OSError):
+    long_description = read_file("README.md")
+
+long_description = pathlib.Path("README.md").read_text()
 
 setup(
     name="dataramp",
@@ -74,13 +68,14 @@ setup(
     license="MIT",
     description="A Data science library for data science / data analysis teams",
     long_description=long_description,
-    long_description_content_type="x-rst",
+    long_description_content_type="text/markdown",
     author="Meshack Kitonga",
     author_email="kitongameshack9@gmail.com",
     url="",
     keywords=["dataramp", "Data Science", "Data Analysis"],
     packages=find_packages(exclude=("tests",)),
     classifiers=[
+        "Intended Audience :: Developers",
         "Intended Audience :: Developers",
         "License :: OSI Approved :: MIT License",
         "Programming Language :: Python :: 3.7",
