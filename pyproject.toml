@@ -1,10 +1,10 @@
 [project]
 name = "dataramp"
 description = "A Data science library for data science / data analysis teams"
-readme = "README.rst"
+readme = {file = "README.md", content-type = "text/markdown"}
 dynamic = ["version"]
 classifiers = [
-    "Development Status :: 2 - Beta",
+    "Development Status :: 4 - Beta",
     "Intended Audience :: Science/Research",
     "Intended Audience :: Developers",
     "Topic :: Software Development",

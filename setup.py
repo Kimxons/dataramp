@@ -74,7 +74,7 @@ setup(
     license="MIT",
     description="A Data science library for data science / data analysis teams",
     long_description=long_description,
-    long_description_content_type="text/x-rst",
+    long_description_content_type="x-rst",
     author="Meshack Kitonga",
     author_email="kitongameshack9@gmail.com",
     url="",
