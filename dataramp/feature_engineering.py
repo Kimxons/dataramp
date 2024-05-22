@@ -100,3 +100,19 @@ class FeatureEngineer:
         )
 
         return Pipeline(steps=[("preprocessor", preprocessor)])
+
+# Usage
+# feature_engineer = FeatureEngineer(categorical_features=cat_vars, numerical_features=num_vars)
+
+# preprocessing_pipeline = feature_engineer.feature_engineering_pipeline()
+
+# feature_selector = FeatureSelector(estimator=RandomForestClassifier(n_estimators=100))
+
+# full_pipeline = Pipeline([
+#     ('preprocessor', preprocessing_pipeline),
+#     ('feature_selector', SelectFromModel(estimator=RandomForestClassifier(n_estimators=100)))
+# ])
+
+# X_train_transformed = full_pipeline.fit_transform(X_train, y_train)
+# X_test_transformed = full_pipeline.transform(X_test)
+
