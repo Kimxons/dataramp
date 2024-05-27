@@ -11,7 +11,6 @@ logging.basicConfig(level=logging.INFO)
 SUPPORTED_METHODS = {
     "joblib": joblib.dump,
     "pickle": pickle.dump,
-    # "keras": tf.keras.models.save_model,
 }
 
 def get_project_root(filepath: str) -> str:
@@ -128,7 +127,7 @@ def create_project(project_name: str):
     with open(config_path, "w") as config_file:
         json.dump(config, config_file, indent=4)
 
-    readme_path = base_path / "README.rst"
+    readme_path = base_path / "README.md"
     with open(readme_path, "w") as readme:
         readme.write("Creates a standard data science project directory structure.")
 
