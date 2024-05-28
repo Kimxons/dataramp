@@ -22,14 +22,14 @@ if CURRENT_PYTHON < REQUIRED_PYTHON:
     sys.exit("Sorry, Python {}.{}+ is required".format(*REQUIRED_PYTHON))
 
 def write_version_py():
-    with open(os.path.join("dataramp", "version.txt")) as f:
+    with open(os.path.join("Dataramp", "version.txt")) as f:
         version = f.read().strip()
 
     with contextlib.suppress(Exception): # TODO: Change this handle exceptions appropriately not to suppress them
         version += f".dev{subprocess.check_output(['git','rev-parse', '--short', 'HEAD']).decode('ascii').strip()}"
 
-    # To write version info to dataramp/version.py
-    with open(os.path.join("dataramp", "version.py"), "w") as f:
+    # To write version info to Dataramp/version.py
+    with open(os.path.join("Dataramp", "version.py"), "w") as f:
         f.write(f'__version__ = "{version}"\n')
     return version
 
@@ -63,7 +63,7 @@ except (IOError, ImportError, OSError):
 long_description = pathlib.Path("README.md").read_text()
 
 setup(
-    name="dataramp",
+    name="Dataramp",
     version=write_version_py(),
     license="MIT",
     description="A Data science library for data science / data analysis teams",
@@ -72,7 +72,7 @@ setup(
     author="Meshack Kitonga",
     author_email="kitongameshack9@gmail.com",
     url="",
-    keywords=["dataramp", "Data Science", "Data Analysis"],
+    keywords=["Dataramp", "Data Science", "Data Analysis"],
     packages=find_packages(exclude=("tests",)),
     classifiers=[
         "Intended Audience :: Developers",
