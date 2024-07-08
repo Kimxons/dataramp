@@ -10,12 +10,12 @@ repos:
         language: system
         always_run: true
         pass_filenames: false
-      - id: ruff
-        name: Format code with Ruff
-        entry: ruff . --preview
-        language: system
-        always_run: true
-        pass_filenames: false
+      # - id: ruff
+      #   name: Format code with Ruff
+      #   entry: ruff . --preview
+      #   language: system
+      #   always_run: true
+      #   pass_filenames: false
       - id: isort
         name: Format code with isort
         entry: isort

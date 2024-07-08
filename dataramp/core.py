@@ -1,16 +1,16 @@
 import json
 import logging
 import os
-import pickle
+import pickle as pk
 from pathlib import Path
 
-import joblib
+import joblib as jb
 
 logging.basicConfig(level=logging.INFO)
 
 SUPPORTED_METHODS = {
-    "joblib": joblib.dump,
-    "pickle": pickle.dump,
+    "joblib": jb.dump,
+    "pickle": pk.dump,
 }
 
 def get_project_root(filepath: str) -> str:
@@ -92,6 +92,8 @@ def create_project(project_name: str):
     """
     base_path = Path.cwd() / project_name
     data_path = base_path / "datasets"
+    raw_data_path = data_path / "raw"
+    processed_data_path = data_path / "processed"
     output_path = base_path / "outputs"
     models_path = output_path / "models"
     src_path = base_path / "src"
@@ -103,6 +105,8 @@ def create_project(project_name: str):
     dirs = [
         base_path,
         data_path,
+        raw_data_path,
+        processed_data_path,
         output_path,
         models_path,
         src_path,
@@ -116,9 +120,11 @@ def create_project(project_name: str):
         create_directory(dir)
 
     config = {
-        "description": "Holds the project config settings",
+        "description": "Configure the project settings",
         "base_path": str(base_path),
         "data_path": str(data_path),
+        "raw_data_path": str(raw_data_path),
+        "processed_data_path": str(processed_data_path),
         "output_path": str(output_path),
         "models_path": str(models_path),
     }
