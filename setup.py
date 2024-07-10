@@ -3,9 +3,9 @@
 from __future__ import print_function
 
 import os
-import pathlib
 import subprocess
 import sys
+from pathlib import Path
 
 import pypandoc
 
@@ -13,6 +13,8 @@ try:
     from setuptools import find_packages, setup
 except ImportError:
     from distutils.core import find_packages, setup
+
+directory = Path(__file__).resolve().parent
 
 CURRENT_PYTHON = sys.version_info[:2]
 REQUIRED_PYTHON = (3, 7)
@@ -36,9 +38,6 @@ def write_version_py():
         f.write(f'__version__ = "{version}"\n')
     return version
 
-# Create version.py during installation
-version = write_version_py()
-
 def read_file(path):
     # if this fails on windows then add the following environment variable (PYTHONUTF8=1)
     with open(path, encoding='utf-8') as contents:
@@ -61,7 +60,7 @@ except (IOError, ImportError, OSError):
 
 setup(
     name="Dataramp",
-    version=version,
+    version=write_version_py(),
     license="MIT",
     description="A Data science library for data science / data analysis teams",
     long_description=long_description,
