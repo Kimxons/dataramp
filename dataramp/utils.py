@@ -206,33 +206,24 @@ def display_missing(
     if not isinstance(df, (pd.DataFrame, pd.Series)):
         raise TypeError("df must be a pandas DataFrame")
 
-    dfs = (
-        df.isna()
-        .sum()
-        .to_frame(name="missing_count")
-        .reset_index()
-        .rename(columns={"index": "variable"})
-    )
-    dfs["missing_percent"] = dfs["missing_count"] / len(df) * 100
+    missing = df.isna().sum().to_frame(name="missing_count")
+    missing["missing_percent"] = missing["missing_count"] / len(df) * 100
+    missing = missing.reset_index().rename(columns={"index": "variable"})
 
     if exclude_zero:
-        dfs = dfs[dfs["missing_count"] > 0]
+        missing = missing[missing["missing_count"] > 0]
 
-    if sort_by == "missing_percent":
-        dfs = dfs.sort_values(by="missing_percent", ascending=ascending)
-    else:
-        dfs = dfs.sort_values(by="missing_count", ascending=ascending)
+    missing = missing.sort_values(by=sort_by, ascending=ascending)
 
-    # Display heatmap if plot=True
     if plot:
         plt.figure(figsize=(12, 6))
         plt.title("Missing Values Heatmap")
+        sns.heatmap(df.isna(), cmap="Reds", cbar=False)
         plt.xticks(rotation=90)
         plt.yticks(rotation=0)
-        sns.heatmap(dfs.isna(), cmap="Reds", cbar=False)
         plt.show()
     else:
-        return dfs
+        return missing
     return None
 
 
