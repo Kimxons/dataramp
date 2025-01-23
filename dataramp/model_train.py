@@ -5,9 +5,9 @@ import pandas as pd
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.linear_model import LinearRegression, LogisticRegression
 
-logging.basicConfig(level=logging.INFO,
-                    format='%(asctime)s %(levelname)s %(message)s')
+logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 logger = logging.getLogger(__name__)
+
 
 def train_linear_regression(X: pd.DataFrame, y: pd.Series) -> Any:
     try:
@@ -19,6 +19,7 @@ def train_linear_regression(X: pd.DataFrame, y: pd.Series) -> Any:
         logger.error(f"Error training linear regression model: {e}")
         raise
 
+
 def train_random_forest(X: pd.DataFrame, y: pd.Series) -> Any:
     try:
         model = RandomForestRegressor()
@@ -28,6 +29,7 @@ def train_random_forest(X: pd.DataFrame, y: pd.Series) -> Any:
     except Exception as e:
         logger.error(f"Error training random forest model: {e}")
         raise
+
 
 def train_logistic_regression(X: pd.DataFrame, y: pd.Series) -> Any:
     try:

@@ -8,6 +8,7 @@ from sklearn.exceptions import NotFittedError
 
 logger = logging.getLogger(__name__)
 
+
 class OutlierDetector:
     """Base class for all outlier detectors."""
 
@@ -34,7 +35,7 @@ class OutlierDetector:
         y : array-like, shape=(n_samples), optional (default=None)
             Additional target variable.
 
-        Returns
+        Returns:
         -------
         self : OutlierDetector
             Returns an instance of the outlier detector.
@@ -57,7 +58,7 @@ class OutlierDetector:
         indices : bool, optional (default=False)
             If True, return an array of integers; otherwise, return a boolean mask.
 
-        Returns
+        Returns:
         -------
         outliers : np.ndarray or Tuple[np.ndarray, np.ndarray]
             Array of indices or boolean mask indicating outliers.

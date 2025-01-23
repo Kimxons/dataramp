@@ -70,9 +70,13 @@ def train_classifier(
             if aggregation == "mean":
                 mean_score, std_score = cv_score.mean(), cv_score.std()
             elif aggregation == "weighted":
-                mean_score, std_score = np.average(cv_score, weights=len(cv_score)), np.std(cv_score)
+                mean_score, std_score = np.average(
+                    cv_score, weights=len(cv_score)
+                ), np.std(cv_score)
             else:
-                raise ValueError("Invalid aggregation method. Choose 'mean' or 'weighted'.")
+                raise ValueError(
+                    "Invalid aggregation method. Choose 'mean' or 'weighted'."
+                )
 
             cv_scores[metric_name] = {"mean": mean_score, "std": std_score}
             print(f"{metric_name}: {mean_score:.4f} +/- {std_score:.4f}")

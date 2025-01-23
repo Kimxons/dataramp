@@ -8,15 +8,15 @@ import joblib as jb
 
 logging.basicConfig(level=logging.INFO)
 
-#TODO: add support for parquet, feather, and other file formats
+# TODO: add support for parquet, feather, and other file formats
 SUPPORTED_METHODS = {
     "joblib": jb.dump,
     "pickle": pk.dump,
 }
 
+
 def get_project_root(filepath: str) -> str:
-    """
-    Determine the project root directory from a given file path.
+    """Determine the project root directory from a given file path.
 
     Args:
         filepath (str): The file path to evaluate.
@@ -45,9 +45,9 @@ def get_project_root(filepath: str) -> str:
         raise ValueError(f"Error in get_project_root: {e}") from e
     return filepath
 
+
 def get_path(dir: str) -> str:
-    """
-    Retrieve a specific path from a configuration file.
+    """Retrieve a specific path from a configuration file.
 
     Args:
         dir (str): The key of the path to retrieve.
@@ -67,7 +67,9 @@ def get_path(dir: str) -> str:
             try:
                 config = json.load(configfile)
             except json.JSONDecodeError as e:
-                raise ValueError(f"Error decoding JSON in config file {config_path}: {e}") from e
+                raise ValueError(
+                    f"Error decoding JSON in config file {config_path}: {e}"
+                ) from e
         if dir not in config:
             raise KeyError(f"No key {dir} in config file {config_path}")
         path = os.path.join(homedir, config[dir])
@@ -75,18 +77,18 @@ def get_path(dir: str) -> str:
     except Exception as e:
         raise ValueError(f"Error in get_path: {e}") from e
 
+
 def create_directory(path: Path):
-    """
-    Create a directory if it does not exist already.
+    """Create a directory if it does not exist already.
 
     Args:
         path (Path): The path of the directory to create.
     """
     path.mkdir(parents=True, exist_ok=True)
 
+
 def create_project(project_name: str):
-    """
-    Create a standard data science project directory structure.
+    """Create a standard data science project directory structure.
 
     Args:
         project_name (str): The name of the project.
@@ -95,7 +97,9 @@ def create_project(project_name: str):
         ValueError: If the project name contains invalid characters.
     """
     if not project_name or any(c in project_name for c in "/\\"):
-        raise ValueError("Invalid project name. Avoid special characters like '/' or '\\'.")
+        raise ValueError(
+            "Invalid project name. Avoid special characters like '/' or '\\'."
+        )
 
     base_path = Path.cwd() / project_name
     data_path = base_path / "datasets"
@@ -144,9 +148,9 @@ def create_project(project_name: str):
     with open(readme_path, "w") as readme:
         readme.write("Creates a standard data science project directory structure.")
 
+
 def model_save(model, name="model", method="joblib"):
-    """
-    Save a model using the specified method.
+    """Save a model using the specified method.
 
     Args:
         model: The model to save.
@@ -159,7 +163,9 @@ def model_save(model, name="model", method="joblib"):
     if model is None:
         raise ValueError("Expecting a binary model file, got 'None'")
     if method not in SUPPORTED_METHODS:
-        raise ValueError(f"Method {method} not supported. Supported methods are: {list(SUPPORTED_METHODS.keys())}")
+        raise ValueError(
+            f"Method {method} not supported. Supported methods are: {list(SUPPORTED_METHODS.keys())}"
+        )
     try:
         model_path = get_path("models_path")
         create_directory(Path(model_path))  # Ensure the directory exists
@@ -167,6 +173,8 @@ def model_save(model, name="model", method="joblib"):
         SUPPORTED_METHODS[method](model, file_name)
         logging.info(f"Model saved successfully at {file_name}")
     except PermissionError as e:
-        logging.error(f"Permission error while saving model. Check file permissions. {e}")
+        logging.error(
+            f"Permission error while saving model. Check file permissions. {e}"
+        )
     except Exception as e:
         logging.error(f"Failed to save model due to {e}")

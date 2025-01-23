@@ -2,9 +2,7 @@
 
 from __future__ import print_function
 
-import os
 import sys
-from pathlib import Path
 
 try:
     from setuptools import setup
@@ -17,9 +15,11 @@ REQUIRED_PYTHON = (3, 7)
 if CURRENT_PYTHON < REQUIRED_PYTHON:
     sys.exit(f"Sorry, Python {REQUIRED_PYTHON[0]}.{REQUIRED_PYTHON[1]}+ is required.")
 
+
 def read_file(path):
     with open(path, encoding="utf-8") as f:
         return f.read()
+
 
 long_description = read_file("README.md")
 

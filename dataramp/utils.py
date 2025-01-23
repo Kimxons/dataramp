@@ -1,12 +1,11 @@
 from __future__ import annotations
 
 import platform
-from typing import List, Optional, Tuple, Union
+from typing import List, Union
 
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import seaborn as sns
 from sklearn.preprocessing import OneHotEncoder
 from tqdm import tqdm
 
@@ -18,20 +17,19 @@ else:
 
 
 def get_num_vars(df: Union[pd.DataFrame, pd.Series]) -> List[str]:
-    """
-    Get a list of numeric columns in a DataFrame or Series.
+    """Get a list of numeric columns in a DataFrame or Series.
 
     Parameters
     ----------
     df : Union[pd.DataFrame, pd.Series]
         The input DataFrame or Series.
 
-    Returns
+    Returns:
     -------
     List[str]
         A list of numeric column names.
 
-    Raises
+    Raises:
     ------
     TypeError
         If the input is not a DataFrame or Series.
@@ -47,20 +45,19 @@ def get_num_vars(df: Union[pd.DataFrame, pd.Series]) -> List[str]:
 
 
 def describe_df(df: pd.DataFrame) -> pd.DataFrame:
-    """
-    Generate a summary of descriptive statistics for a DataFrame.
+    """Generate a summary of descriptive statistics for a DataFrame.
 
     Parameters
     ----------
     df : pd.DataFrame
         The input DataFrame.
 
-    Returns
+    Returns:
     -------
     pd.DataFrame
         A DataFrame containing descriptive statistics for each column.
 
-    Raises
+    Raises:
     ------
     TypeError
         If the input is not a DataFrame.
@@ -72,7 +69,9 @@ def describe_df(df: pd.DataFrame) -> pd.DataFrame:
     if df.empty:
         raise ValueError("Input DataFrame is empty.")
 
-    with tqdm(total=len(df.columns), desc="Describing DataFrame", unit="column") as pbar:
+    with tqdm(
+        total=len(df.columns), desc="Describing DataFrame", unit="column"
+    ) as pbar:
         numeric_descr = [
             df[col].describe().apply("{0:.3f}".format)
             for col in df.select_dtypes(include=np.number).columns
@@ -89,20 +88,19 @@ def describe_df(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def get_cat_vars(df: Union[pd.DataFrame, pd.Series]) -> List[str]:
-    """
-    Get a list of categorical columns in a DataFrame or Series.
+    """Get a list of categorical columns in a DataFrame or Series.
 
     Parameters
     ----------
     df : Union[pd.DataFrame, pd.Series]
         The input DataFrame or Series.
 
-    Returns
+    Returns:
     -------
     List[str]
         A list of categorical column names.
 
-    Raises
+    Raises:
     ------
     TypeError
         If the input is not a DataFrame or Series.
@@ -118,8 +116,7 @@ def get_cat_vars(df: Union[pd.DataFrame, pd.Series]) -> List[str]:
 
 
 def one_hot_encode(df: pd.DataFrame, cols: List[str]) -> pd.DataFrame:
-    """
-    Perform one-hot encoding on specified categorical columns.
+    """Perform one-hot encoding on specified categorical columns.
 
     Parameters
     ----------
@@ -128,12 +125,12 @@ def one_hot_encode(df: pd.DataFrame, cols: List[str]) -> pd.DataFrame:
     cols : List[str]
         A list of categorical column names to encode.
 
-    Returns
+    Returns:
     -------
     pd.DataFrame
         A DataFrame with one-hot encoded columns.
 
-    Raises
+    Raises:
     ------
     TypeError
         If the input is not a DataFrame or `cols` is not a list.
@@ -160,8 +157,7 @@ def one_hot_encode(df: pd.DataFrame, cols: List[str]) -> pd.DataFrame:
 
 
 def target_encode(df: pd.DataFrame, col: str, target_column: str) -> pd.DataFrame:
-    """
-    Perform target encoding on a categorical column.
+    """Perform target encoding on a categorical column.
 
     Parameters
     ----------
@@ -172,12 +168,12 @@ def target_encode(df: pd.DataFrame, col: str, target_column: str) -> pd.DataFram
     target_column : str
         The target column used for encoding.
 
-    Returns
+    Returns:
     -------
     pd.DataFrame
         A DataFrame with the target-encoded column.
 
-    Raises
+    Raises:
     ------
     TypeError
         If the input is not a DataFrame or `col`/`target_column` are not strings.

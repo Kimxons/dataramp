@@ -1,5 +1,4 @@
-"""
-Model Evaluation: Cross Validation, Model Reporting, A/B Testing.
+"""Model Evaluation: Cross Validation, Model Reporting, A/B Testing.
 """
 
 import logging
@@ -35,7 +34,7 @@ class ModelEvaluator(BaseEstimator):
             logger.error(f"Error occurred during cross-validation: {str(e)}")
             raise
 
-        return scores.tolist() # return scores
+        return scores.tolist()  # return scores
 
     def cross_validation_report(
         self,

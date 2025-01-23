@@ -8,14 +8,12 @@ from sklearn.preprocessing import OneHotEncoder, StandardScaler
 
 logging.basicConfig(level=logging.INFO)
 
+
 class FeatureSelector:
-    """
-    A class to perform feature selection using different methods.
-    """
+    """A class to perform feature selection using different methods."""
 
     def __init__(self, estimator=None):
-        """
-        Initialize the FeatureSelector with an estimator.
+        """Initialize the FeatureSelector with an estimator.
 
         Parameters:
         -----------
@@ -25,8 +23,7 @@ class FeatureSelector:
         self.estimator = estimator
 
     def recursive_feature_elimination(self, X, y, n_features_to_select=None):
-        """
-        Perform Recursive Feature Elimination (RFE) for feature selection.
+        """Perform Recursive Feature Elimination (RFE) for feature selection.
 
         Parameters:
         -----------
@@ -44,15 +41,16 @@ class FeatureSelector:
         """
         logging.info("Performing Recursive Feature Elimination (RFE)")
         try:
-            selector = RFE(estimator=self.estimator, n_features_to_select=n_features_to_select)
+            selector = RFE(
+                estimator=self.estimator, n_features_to_select=n_features_to_select
+            )
             return selector.fit_transform(X, y)
         except Exception as e:
             logging.error(f"Error in recursive_feature_elimination: {e}")
             raise
 
     def feature_importance_analysis(self, X, y):
-        """
-        Perform feature selection based on feature importance analysis.
+        """Perform feature selection based on feature importance analysis.
 
         Parameters:
         -----------
@@ -76,13 +74,10 @@ class FeatureSelector:
 
 
 class FeatureEngineer:
-    """
-    A class to perform feature engineering tasks.
-    """
+    """A class to perform feature engineering tasks."""
 
     def __init__(self, categorical_features=None, numerical_features=None):
-        """
-        Initialize the FeatureEngineer with categorical and numerical features.
+        """Initialize the FeatureEngineer with categorical and numerical features.
 
         Parameters:
         -----------
@@ -95,8 +90,7 @@ class FeatureEngineer:
         self.numerical_features = numerical_features
 
     def handle_missing_values(self, X, strategy="mean"):
-        """
-        Handle missing values in the dataset.
+        """Handle missing values in the dataset.
 
         Parameters:
         -----------
@@ -119,8 +113,7 @@ class FeatureEngineer:
             raise
 
     def encode_categorical_variables(self, X):
-        """
-        Encode categorical variables using OneHotEncoder.
+        """Encode categorical variables using OneHotEncoder.
 
         Parameters:
         -----------
@@ -141,8 +134,7 @@ class FeatureEngineer:
             raise
 
     def scale_numerical_features(self, X):
-        """
-        Scale numerical features using StandardScaler.
+        """Scale numerical features using StandardScaler.
 
         Parameters:
         -----------
@@ -163,8 +155,7 @@ class FeatureEngineer:
             raise
 
     def feature_engineering_pipeline(self):
-        """
-        Create a feature engineering pipeline for preprocessing the data.
+        """Create a feature engineering pipeline for preprocessing the data.
 
         Returns:
         --------
@@ -195,6 +186,7 @@ class FeatureEngineer:
         )
 
         return Pipeline(steps=[("preprocessor", preprocessor)])
+
 
 # Example usage (commented out to prevent execution in this context)
 # feature_engineer = FeatureEngineer(categorical_features=cat_vars, numerical_features=num_vars)

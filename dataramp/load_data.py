@@ -5,26 +5,26 @@ from typing import Union
 
 import pandas as pd
 
-#TODO: Add support for other db configs
+# TODO: Add support for other db configs
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 logger = logging.getLogger(__name__)
 
+
 def load_csv(file_path: Union[str, Path]) -> pd.DataFrame:
-    """
-    Load data from a CSV file into a Pandas DataFrame.
+    """Load data from a CSV file into a Pandas DataFrame.
 
     Parameters
     ----------
     file_path : Union[str, Path]
         The path to the CSV file.
 
-    Returns
+    Returns:
     -------
     pd.DataFrame
         The loaded data as a Pandas DataFrame.
 
-    Raises
+    Raises:
     ------
     FileNotFoundError
         If the file does not exist.
@@ -42,21 +42,21 @@ def load_csv(file_path: Union[str, Path]) -> pd.DataFrame:
         logger.error(f"Error loading CSV file from {file_path}: {e}")
         raise
 
+
 def load_excel(file_path: Union[str, Path]) -> pd.DataFrame:
-    """
-    Load data from an Excel file into a Pandas DataFrame.
+    """Load data from an Excel file into a Pandas DataFrame.
 
     Parameters
     ----------
     file_path : Union[str, Path]
         The path to the Excel file.
 
-    Returns
+    Returns:
     -------
     pd.DataFrame
         The loaded data as a Pandas DataFrame.
 
-    Raises
+    Raises:
     ------
     FileNotFoundError
         If the file does not exist.
@@ -74,9 +74,9 @@ def load_excel(file_path: Union[str, Path]) -> pd.DataFrame:
         logger.error(f"Error loading Excel file from {file_path}: {e}")
         raise
 
+
 def load_from_db(connection_string: str, query: str) -> pd.DataFrame:
-    """
-    Load data from a database into a Pandas DataFrame using a SQL query.
+    """Load data from a database into a Pandas DataFrame using a SQL query.
 
     Parameters
     ----------
@@ -85,12 +85,12 @@ def load_from_db(connection_string: str, query: str) -> pd.DataFrame:
     query : str
         The SQL query to execute.
 
-    Returns
+    Returns:
     -------
     pd.DataFrame
         The loaded data as a Pandas DataFrame.
 
-    Raises
+    Raises:
     ------
     ValueError
         If the connection string or query is invalid.
@@ -108,21 +108,21 @@ def load_from_db(connection_string: str, query: str) -> pd.DataFrame:
         logger.error(f"Error loading data from database: {e}")
         raise
 
+
 def load_json(file_path: Union[str, Path]) -> pd.DataFrame:
-    """
-    Load data from a JSON file into a Pandas DataFrame.
+    """Load data from a JSON file into a Pandas DataFrame.
 
     Parameters
     ----------
     file_path : Union[str, Path]
         The path to the JSON file.
 
-    Returns
+    Returns:
     -------
     pd.DataFrame
         The loaded data as a Pandas DataFrame.
 
-    Raises
+    Raises:
     ------
     FileNotFoundError
         If the file does not exist.
