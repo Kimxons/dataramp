@@ -69,7 +69,7 @@ def get_path(dir: str) -> str:
                 raise ValueError(f"Error decoding JSON in config file {config_path}: {e}") from e
         if dir not in config:
             raise KeyError(f"No key {dir} in config file {config_path}")
-        path = os.path.join(homedir, config[dir].replace("/", os.path.sep))
+        path = os.path.join(homedir, config[dir])
         return path
     except Exception as e:
         raise ValueError(f"Error in get_path: {e}") from e
@@ -89,7 +89,13 @@ def create_project(project_name: str):
 
     Args:
         project_name (str): The name of the project.
+
+    Raises:
+        ValueError: If the project name contains invalid characters.
     """
+    if not project_name or any(c in project_name for c in "/\\"):
+        raise ValueError("Invalid project name. Avoid special characters like '/' or '\\'.")
+
     base_path = Path.cwd() / project_name
     data_path = base_path / "datasets"
     raw_data_path = data_path / "raw"
@@ -155,13 +161,10 @@ def model_save(model, name="model", method="joblib"):
         raise ValueError(f"Method {method} not supported. Supported methods are: {list(SUPPORTED_METHODS.keys())}")
     try:
         model_path = get_path("models_path")
+        create_directory(Path(model_path))  # Ensure the directory exists
         file_name = f"{model_path}/{name}.{method}"
         SUPPORTED_METHODS[method](model, file_name)
         logging.info(f"Model saved successfully at {file_name}")
-    except FileNotFoundError:
-        logging.warning(f"Models folder does not exist. Saving model to the {name} folder.")
-        file_name = f"{name}.{method}"
-        SUPPORTED_METHODS[method](model, file_name)
     except PermissionError as e:
         logging.error(f"Permission error while saving model. Check file permissions. {e}")
     except Exception as e:
