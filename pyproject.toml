@@ -15,10 +15,10 @@ classifiers = [
     "Programming Language :: Python :: 3.11",
 ]
 authors = [
-    {name="Meshack Kitonga", email="kitongameshack9@gmail.com"}
+    {name = "Meshack Kitonga", email = "kitongameshack9@gmail.com"}
 ]
 maintainers = [
-    {name="Meshack Kitonga", email="kitongameshack9@gmail.com"}
+    {name = "Meshack Kitonga", email = "kitongameshack9@gmail.com"}
 ]
 keywords = ["data science", "machine learning", "data analysis"]
 license = {file = "LICENSE"}
@@ -42,9 +42,9 @@ dependencies = [
 ]
 
 [project.urls]
-"Documentation" = "https://github.com/Kimxons/dataramp/tree/main/docs"
-"Source Code"= "https://github.com/Kimxons/dataramp"
-"Changes" = "https://github.com/dataramp/en/latest/release_notes.html"
+Documentation = "https://github.com/Kimxons/dataramp/tree/main/docs"
+"Source Code" = "https://github.com/Kimxons/dataramp"
+Changes = "https://github.com/dataramp/en/latest/release_notes.html"
 "Issue Tracker" = "https://github.com/Kimxons/dataramp/issues"
 
 [project.optional-dependencies]
