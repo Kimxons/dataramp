@@ -8,6 +8,7 @@ import joblib as jb
 
 logging.basicConfig(level=logging.INFO)
 
+#TODO: add support for parquet, feather, and other file formats
 SUPPORTED_METHODS = {
     "joblib": jb.dump,
     "pickle": pk.dump,

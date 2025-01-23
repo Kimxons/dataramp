@@ -13,3 +13,4 @@ seaborn==0.13.2
 pre-commit
 pypandoc==1.13
 ruff==0.5.1
+pyment==0.3.3
