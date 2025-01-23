@@ -10,7 +10,7 @@ except ImportError:
     from distutils.core import setup
 
 CURRENT_PYTHON = sys.version_info[:2]
-REQUIRED_PYTHON = (3, 9)
+REQUIRED_PYTHON = (3, 7)
 
 if CURRENT_PYTHON < REQUIRED_PYTHON:
     sys.exit(f"Sorry, Python {REQUIRED_PYTHON[0]}.{REQUIRED_PYTHON[1]}+ is required.")
@@ -32,5 +32,5 @@ setup(
     author_email="kitongameshack9@gmail.com",
     url="https://github.com/Kimxons/dataramp",
     keywords=["data science", "machine learning", "data analysis"],
-    python_requires=">=3.9",
+    python_requires=">=3.7",
 )
