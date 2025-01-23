@@ -1,11 +1,12 @@
+import logging
 import os
 import platform
-import sys
 from typing import Callable, Dict, Optional, Union
 
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+from sklearn.base import BaseEstimator
 from sklearn.metrics import (
     accuracy_score,
     classification_report,
@@ -17,89 +18,100 @@ from sklearn.metrics import (
     roc_curve,
 )
 from sklearn.model_selection import cross_val_score
+from sklearn.utils.validation import check_array, check_X_y
 
-"""
-Model traning: Algorithms, Ensemble, Parameter tuning,
-    Retraining, Model management.
-"""
-sys.path.append(os.getcwd())
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 
-def switch_plotting_backend():
+def switch_plotting_backend() -> None:
     if platform.system() != "Darwin":
         plt.switch_backend("Agg")
 
 
-def train_classifier(
-    x_train: Union[pd.DataFrame, np.ndarray],
+def train_and_evaluate(
+    model: BaseEstimator,
+    X_train: Union[pd.DataFrame, np.ndarray],
     y_train: Union[pd.Series, np.ndarray],
-    estimator: object,
-    x_val: Optional[Union[pd.DataFrame, np.ndarray]] = None,
+    X_val: Optional[Union[pd.DataFrame, np.ndarray]] = None,
     y_val: Optional[Union[pd.Series, np.ndarray]] = None,
-    cross_validate: bool = False,
     cv: int = 5,
-    custom_metrics: Optional[Dict[str, Callable]] = None,
-    callbacks: Optional[Dict[str, Callable]] = None,
-    aggregation: str = "mean",
-    plot_options: Optional[Dict[str, str]] = None,
-) -> dict:
-    if any(arg is None for arg in [x_train, y_train, x_val, y_val]):
-        raise ValueError("Some input arguments are None.")
+    metrics: Optional[Dict[str, Callable]] = None,
+    plot: bool = True,
+    save_plot: Optional[str] = None,
+) -> Dict[str, Union[Dict[str, float], np.ndarray, float, BaseEstimator]]:
+    """
+    Train and evaluate a machine learning model.
 
-    result_dict = {}
+    Args:
+        model: The classifier model to train.
+        X_train: Training features.
+        y_train: Training labels.
+        X_val: Validation features (optional). If not provided, cross-validation is used.
+        y_val: Validation labels (optional).
+        cv: Number of cross-validation folds (default: 5).
+        metrics: Dictionary of custom metric functions (default: accuracy, F1, precision, recall).
+        plot: Whether to generate plots (default: True).
+        save_plot: Path to save the ROC curve plot (optional).
 
-    switch_plotting_backend()
+    Returns:
+        Dictionary containing training and evaluation results.
+    """
+    # Validate inputs
+    X_train, y_train = check_X_y(X_train, y_train)
+    if X_val is not None and y_val is not None:
+        X_val = check_array(X_val)
+        if X_val.shape[1] != X_train.shape[1]:
+            raise ValueError("X_train and X_val must have the same number of features.")
 
-    if cross_validate:
-        scorers = {
+    # Default metrics
+    if metrics is None:
+        metrics = {
             "Accuracy": accuracy_score,
             "F1-score": f1_score,
             "Precision": precision_score,
             "Recall": recall_score,
         }
 
-        if custom_metrics:
-            scorers |= custom_metrics
+    results = {}
 
+    # Cross-validation
+    if X_val is None or y_val is None:
+        logger.info("Performing cross-validation...")
         cv_scores = {}
-
-        for metric_name, scorer in scorers.items():
-            cv_score = cross_val_score(
-                estimator, x_train, y_train, scoring=scorer, cv=cv
+        for metric_name, metric_func in metrics.items():
+            scores = cross_val_score(
+                model, X_train, y_train, scoring=metric_func, cv=cv, n_jobs=-1
             )
-            if aggregation == "mean":
-                mean_score, std_score = cv_score.mean(), cv_score.std()
-            elif aggregation == "weighted":
-                mean_score, std_score = np.average(
-                    cv_score, weights=len(cv_score)
-                ), np.std(cv_score)
-            else:
-                raise ValueError(
-                    "Invalid aggregation method. Choose 'mean' or 'weighted'."
-                )
-
-            cv_scores[metric_name] = {"mean": mean_score, "std": std_score}
-            print(f"{metric_name}: {mean_score:.4f} +/- {std_score:.4f}")
-
-        result_dict["cross_validation_scores"] = cv_scores
+            cv_scores[metric_name] = {"mean": scores.mean(), "std": scores.std()}
+            logger.info(f"{metric_name}: {scores.mean():.4f} +/- {scores.std():.4f}")
+        results["cross_validation_scores"] = cv_scores
     else:
-        estimator.fit(x_train, y_train)
-        y_pred = estimator.predict(x_val)
-        classification_rep = classification_report(y_val, y_pred, output_dict=True)
-        confusion_mat = confusion_matrix(y_val, y_pred)
+        # Train the model
+        logger.info("Training the model...")
+        model.fit(X_train, y_train)
 
-        result_dict["classification_report"] = classification_rep
-        result_dict["confusion_matrix"] = confusion_mat
+        # Evaluate the model
+        logger.info("Evaluating the model...")
+        y_pred = model.predict(X_val)
+        results["classification_report"] = classification_report(
+            y_val, y_pred, output_dict=True
+        )
+        results["confusion_matrix"] = confusion_matrix(y_val, y_pred)
 
-        print(classification_report(y_val, y_pred))
-        print(f"Confusion Matrix:\n {confusion_mat}")
+        logger.info("Classification Report:")
+        logger.info(classification_report(y_val, y_pred))
+        logger.info("Confusion Matrix:")
+        logger.info(confusion_matrix(y_val, y_pred))
 
-        # ROC plot
-        if hasattr(estimator, "predict_proba"):
-            y_pred_proba = estimator.predict_proba(x_val)[:, 1]
+        # ROC curve for binary classification
+        if plot and hasattr(model, "predict_proba") and len(np.unique(y_val)) == 2:
+            logger.info("Generating ROC curve...")
+            y_pred_proba = model.predict_proba(X_val)[:, 1]
             fpr, tpr, _ = roc_curve(y_val, y_pred_proba)
             roc_auc = roc_auc_score(y_val, y_pred_proba)
 
+            plt.figure()
             plt.plot(
                 fpr, tpr, color="darkorange", label=f"ROC curve (AUC = {roc_auc:.2f})"
             )
@@ -109,17 +121,13 @@ def train_classifier(
             plt.title("Receiver Operating Characteristic Curve")
             plt.legend()
 
-            result_dict["roc_auc"] = roc_auc
+            if save_plot:
+                plt.savefig(save_plot)
+            else:
+                plt.show()
 
-            if plot_options:
-                for key, value in plot_options.items():
-                    plt.set(key, value)
+            results["roc_auc"] = roc_auc
 
-            plt.show()
-
-    # Callbacks
-    if callbacks:
-        for callback_name, callback_func in callbacks.items():
-            callback_func(result_dict)
-
-    return result_dict
+    # Return the trained model
+    results["model"] = model
+    return results
