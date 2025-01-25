@@ -1,4 +1,4 @@
-"""Utility functions for data preprocessing and analysis.
+"""Utility module for data preprocessing and analysis in pandas.
 
 This module provides various utility functions for working with pandas DataFrames,
 including functions for identifying numeric and categorical variables, data encoding,
@@ -8,7 +8,7 @@ and descriptive statistics.
 from __future__ import annotations
 
 import platform
-from typing import List, Optional, Union
+from typing import List, Optional, Tuple, Union
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -261,3 +261,189 @@ def display_missing(
         return None
 
     return missing
+
+
+def feature_summary(
+    df: Union[pd.DataFrame, pd.Series], visualize: bool = False
+) -> pd.DataFrame:
+    """Generate a summary of features in a DataFrame or Series.
+
+    Parameters
+    ----------
+    df : Union[pd.DataFrame, pd.Series]
+        The input DataFrame or Series to analyze.
+    visualize : bool, optional
+        Whether to display visualizations for each column (default: False).
+
+    Returns:
+    -------
+    pd.DataFrame
+        A DataFrame containing summary statistics for each column.
+
+    Raises:
+    ------
+    ValueError
+        If the input is None.
+    TypeError
+        If the input is not a DataFrame or Series.
+    """
+    if df is None:
+        raise ValueError("Expected a pandas dataframe, but got None")
+    if not isinstance(df, (pd.DataFrame, pd.Series)):
+        raise TypeError("df must be a pandas DataFrame")
+    summary_df = pd.DataFrame(
+        index=df.columns,
+        columns=[
+            "Null",
+            "Unique_Count",
+            "Data_type",
+            "Max",
+            "Min",
+            "Mean",
+            "Std",
+            "Skewness",
+        ],
+    )
+    for col in df.columns:
+        if pd.api.types.is_categorical_dtype(df[col]):
+            summary_df.at[col, "Unique_Count"] = df[col].nunique()
+            summary_df.at[col, "Data_type"] = "categorical"
+        else:
+            summary_df.at[col, "Unique_Count"] = df[col].nunique()
+            summary_df.at[col, "Data_type"] = str(df[col].dtype)
+            summary_df.at[col, "Max"] = df[col].max()
+            summary_df.at[col, "Min"] = df[col].min()
+            summary_df.at[col, "Mean"] = df[col].mean()
+            summary_df.at[col, "Std"] = df[col].std()
+            summary_df.at[col, "Skewness"] = df[col].skew()
+            if visualize:
+                if pd.api.types.is_numeric_dtype(df[col]):
+                    _fig, ax = plt.subplots(1, 2, figsize=(10, 5))
+                    ax[0].hist(df[col])
+                    ax[0].set_xlabel(col)
+                    ax[0].set_ylabel("Frequency")
+                    ax[1].boxplot(df[col], vert=False)
+                    ax[1].set_xlabel(col)
+                    plt.show()
+                elif pd.api.types.is_categorical_dtype(df[col]):
+                    _fig, ax = plt.subplots(1, 2, figsize=(10, 5))
+                    df[col].value_counts().plot(kind="bar", ax=ax)
+                    ax.set_xlabel(col)
+                    ax.set_ylabel("Frequency")
+                    plt.show()
+        summary_df.at[col, "Null"] = df[col].isnull().sum()
+    return summary_df
+
+
+def get_unique_counts(data: pd.DataFrame) -> pd.DataFrame:
+    """Get the count of unique values for each object (categorical) column in a DataFrame.
+
+    Parameters
+    ----------
+    data : pd.DataFrame
+        The input DataFrame to analyze.
+
+    Returns:
+    -------
+    pd.DataFrame
+        A DataFrame containing feature names and their unique value counts.
+
+    Raises:
+    ------
+    ValueError
+        If the input is None.
+    TypeError
+        If the input is not a DataFrame or Series.
+    """
+    if data is None:
+        raise ValueError("data: Expecting a DataFrame or Series, got 'None'")
+    if not isinstance(data, (pd.DataFrame, pd.Series)):
+        raise TypeError(f"Expected a DataFrame or Series, but got '{type(data)}'")
+    if isinstance(data, pd.Series):
+        data = data.to_frame()
+    features = data.select_dtypes(include="object").columns.tolist()
+    unique_counts = data[features].nunique().reset_index()
+    unique_counts.columns = ["Feature", "Unique Count"]
+    return unique_counts
+
+
+def join_train_and_test(
+    data_train: pd.DataFrame, data_test: pd.DataFrame
+) -> Tuple[pd.DataFrame, int, int]:
+    """Join training and test DataFrames and return the combined data with counts.
+
+    Parameters
+    ----------
+    data_train : pd.DataFrame
+        The training DataFrame.
+    data_test : pd.DataFrame
+        The test DataFrame.
+
+    Returns:
+    -------
+    Tuple[pd.DataFrame, int, int]
+        A tuple containing:
+        - The combined DataFrame
+        - Number of training samples
+        - Number of test samples
+
+    Raises:
+    ------
+    ValueError
+        If either data_train or data_test is None.
+    TypeError
+        If either input is not a DataFrame.
+    """
+    if data_train is None or data_test is None:
+        raise ValueError("Both 'data_train' and 'data_test' must be provided.")
+    if not isinstance(data_train, pd.DataFrame) or not isinstance(
+        data_test, pd.DataFrame
+    ):
+        raise TypeError("Both 'data_train' and 'data_test' should be DataFrames.")
+    n_train = data_train.shape[0]
+    n_test = data_test.shape[0]
+    all_data = pd.concat([data_train, data_test], ignore_index=True, sort=False)
+    return all_data, n_train, n_test
+
+
+def check_train_test_set(
+    train_data: pd.DataFrame,
+    test_data: pd.DataFrame,
+    index: Optional[str] = None,
+    col: Optional[str] = None,
+) -> None:
+    """Check and visualize the relationship between training and test datasets.
+
+    Parameters
+    ----------
+    train_data : pd.DataFrame
+        The training dataset.
+    test_data : pd.DataFrame
+        The test dataset.
+    index : Optional[str]
+        The name of the ID column to check for uniqueness and overlap.
+    col : Optional[str]
+        The column name to use for grouping and visualization.
+
+    Returns:
+    -------
+    None
+        Displays analysis results and a visualization plot.
+    """
+    if index:
+        if train_data[index].nunique() == train_data.shape[0]:
+            print("ID field is unique in the training set.")
+        else:
+            print("ID field is not unique in the training set.")
+        if len(np.intersect1d(train_data[index].values, test_data[index].values)) == 0:
+            print("Train and test sets have distinct IDs.")
+        else:
+            print("Train and test sets share some IDs.")
+        print("\n")
+        plt.plot(train_data.groupby(col).count()[[index]], "o-", label="Train")
+        plt.plot(test_data.groupby(col).count()[[index]], "o-", label="Test")
+        plt.title("Train and test instances overlap.")
+        plt.legend(loc="best")
+        plt.xlabel(col)
+        plt.ylabel("Number of records")
+        plt.show()
