@@ -15,7 +15,6 @@ import numpy as np
 import pandas as pd
 import seaborn as sns
 from sklearn.preprocessing import OneHotEncoder
-from tqdm import tqdm
 
 # matplotlib backend
 if platform.system() == "Darwin":
@@ -77,22 +76,28 @@ def describe_df(df: pd.DataFrame) -> pd.DataFrame:
     if df.empty:
         raise ValueError("Input DataFrame is empty.")
 
-    with tqdm(
-        total=len(df.columns), desc="Describing DataFrame", unit="column"
-    ) as pbar:
-        numeric_descr = [
-            df[col].describe().apply("{0:.3f}".format)
-            for col in df.select_dtypes(include=np.number).columns
-        ]
-        non_numeric_descr = [
-            df[col].describe().apply(str)
-            for col in df.select_dtypes(exclude=np.number).columns
-        ]
+    numeric_cols = df.select_dtypes(include=np.number).columns
+    numeric_descr = (
+        df[numeric_cols].describe().T if not numeric_cols.empty else pd.DataFrame()
+    )
 
-        descr = numeric_descr + non_numeric_descr
-        pbar.update(len(df.columns))
+    cat_cols = df.select_dtypes(exclude=np.number).columns
+    cat_descr = pd.DataFrame(columns=["count", "unique", "top", "freq"])
 
-    return pd.concat(descr, axis=1)
+    for col in cat_cols:
+        desc = df[col].describe()
+        cat_descr.loc[col] = desc
+
+    if not numeric_descr.empty and not cat_descr.empty:
+        final_descr = pd.concat([numeric_descr, cat_descr], axis=1)
+    elif not numeric_descr.empty:
+        final_descr = numeric_descr
+    elif not cat_descr.empty:
+        final_descr = cat_descr
+    else:
+        raise ValueError("No columns to describe")
+
+    return final_descr
 
 
 def get_cat_vars(df: Union[pd.DataFrame, pd.Series]) -> List[str]:
@@ -412,38 +417,55 @@ def check_train_test_set(
     index: Optional[str] = None,
     col: Optional[str] = None,
 ) -> None:
-    """Check and visualize the relationship between training and test datasets.
+    """Check and visualize differences between training and test datasets.
 
     Parameters
     ----------
     train_data : pd.DataFrame
-        The training dataset.
+        The training dataset to analyze.
     test_data : pd.DataFrame
-        The test dataset.
+        The test dataset to analyze.
     index : Optional[str]
-        The name of the ID column to check for uniqueness and overlap.
+        Column name to use as ID for uniqueness checks.
     col : Optional[str]
-        The column name to use for grouping and visualization.
+        Column name to use for distribution visualization.
 
     Returns:
     -------
     None
-        Displays analysis results and a visualization plot.
+        This function prints results and displays plots directly.
     """
+    if train_data is None or test_data is None:
+        print("Both train and test data must be provided.")
+        return
+
     if index:
-        if train_data[index].nunique() == train_data.shape[0]:
-            print("ID field is unique in the training set.")
-        else:
-            print("ID field is not unique in the training set.")
-        if len(np.intersect1d(train_data[index].values, test_data[index].values)) == 0:
-            print("Train and test sets have distinct IDs.")
-        else:
-            print("Train and test sets share some IDs.")
-        print("\n")
-        plt.plot(train_data.groupby(col).count()[[index]], "o-", label="Train")
-        plt.plot(test_data.groupby(col).count()[[index]], "o-", label="Test")
-        plt.title("Train and test instances overlap.")
-        plt.legend(loc="best")
+        train_unique = train_data[index].nunique() == train_data.shape[0]
+        print(f"ID unique in training set: {train_unique}")
+
+        id_overlap = (
+            len(np.intersect1d(train_data[index].values, test_data[index].values)) > 0
+        )
+        print(f"Train and test sets share IDs: {id_overlap}")
+
+    if col:
+        plt.figure(figsize=(10, 6))
+        train_counts = train_data.groupby(col).size()
+        test_counts = test_data.groupby(col).size()
+
+        plt.bar(
+            train_counts.index.astype(str),
+            train_counts.values,
+            label="Train",
+            alpha=0.7,
+        )
+        plt.bar(
+            test_counts.index.astype(str), test_counts.values, label="Test", alpha=0.7
+        )
+
+        plt.title("Train and Test Distribution")
         plt.xlabel(col)
-        plt.ylabel("Number of records")
+        plt.ylabel("Number of Instances")
+        plt.legend()
+        plt.tight_layout()
         plt.show()

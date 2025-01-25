@@ -1,6 +1,15 @@
-import logging
-from typing import Any, Dict, Union
+"""Module for training and evaluating machine learning models.
 
+This module provides functions for training and evaluating various machine learning models,
+including linear regression, random forest, and logistic regression. It includes utilities
+for model evaluation, metrics calculation, and visualization.
+"""
+
+import logging
+from typing import Any, Dict, Optional, Union
+
+import matplotlib.pyplot as plt
+import numpy as np
 import pandas as pd
 from sklearn.base import BaseEstimator
 from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
@@ -77,10 +86,8 @@ def evaluate_model(
     """
     results = {}
 
-    # Predict
     y_pred = model.predict(X)
 
-    # Classification metrics
     if model_type == "classifier":
         results["classification_report"] = classification_report(
             y, y_pred, output_dict=True
@@ -92,7 +99,6 @@ def evaluate_model(
         logger.info("Confusion Matrix:")
         logger.info(confusion_matrix(y, y_pred))
 
-        # ROC curve for binary classification
         if plot and hasattr(model, "predict_proba") and len(np.unique(y)) == 2:
             logger.info("Generating ROC curve...")
             y_pred_proba = model.predict_proba(X)[:, 1]
@@ -116,7 +122,6 @@ def evaluate_model(
 
             results["roc_auc"] = roc_auc
 
-    # Regression metrics
     elif model_type == "regressor":
         results["mse"] = mean_squared_error(y, y_pred)
         results["r2"] = r2_score(y, y_pred)
@@ -124,7 +129,6 @@ def evaluate_model(
         logger.info(f"MSE: {results['mse']:.4f}")
         logger.info(f"R2: {results['r2']:.4f}")
 
-        # Residual plot
         if plot:
             logger.info("Generating residual plot...")
             residuals = y - y_pred

@@ -1,3 +1,9 @@
+"""Module containing outlier detection functionality.
+
+This module provides classes for detecting outliers in data using various statistical methods,
+including interquartile range and interval-based detection.
+"""
+
 import logging
 import numbers
 from typing import Tuple, Union
