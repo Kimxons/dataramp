@@ -1,7 +1,6 @@
 import logging
-import os
 import platform
-from typing import Callable, Dict, Optional, Union
+from typing import Dict, Optional, Union
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -38,8 +37,7 @@ def train_model(
     model_name: str,
     **kwargs: Dict[str, Any],
 ) -> BaseEstimator:
-    """
-    Train a machine learning model.
+    """Train a machine learning model.
 
     Args:
         model: The model to train.
@@ -76,8 +74,7 @@ def evaluate_model(
     plot: bool = True,
     save_plot: Optional[str] = None,
 ) -> Dict[str, Union[Dict[str, float], np.ndarray, float]]:
-    """
-    Evaluate a machine learning model.
+    """Evaluate a machine learning model.
 
     Args:
         model: The trained model.
@@ -170,8 +167,7 @@ def train_and_evaluate(
     save_plot: Optional[str] = None,
     **kwargs: Dict[str, Any],
 ) -> Dict[str, Union[Dict[str, float], np.ndarray, float, BaseEstimator]]:
-    """
-    Train and evaluate a machine learning model.
+    """Train and evaluate a machine learning model.
 
     Args:
         model: The model to train.

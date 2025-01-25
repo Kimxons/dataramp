@@ -1,3 +1,9 @@
+"""Module providing functions to load data from various sources into pandas DataFrames.
+
+This module includes functions for loading data from CSV, Excel, JSON files,
+and databases into pandas DataFrames, with proper error handling and logging.
+"""
+
 import logging
 import sqlite3
 from pathlib import Path

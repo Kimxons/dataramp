@@ -6,19 +6,13 @@ from sklearn.base import BaseEstimator
 from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
 from sklearn.linear_model import LinearRegression, LogisticRegression
 from sklearn.metrics import (
-    accuracy_score,
     classification_report,
     confusion_matrix,
-    f1_score,
     mean_squared_error,
-    precision_score,
     r2_score,
-    recall_score,
     roc_auc_score,
     roc_curve,
 )
-from sklearn.model_selection import cross_val_score
-from sklearn.utils.validation import check_array, check_X_y
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 logger = logging.getLogger(__name__)
@@ -31,8 +25,7 @@ def train_model(
     model_name: str,
     **kwargs: Dict[str, Any],
 ) -> BaseEstimator:
-    """
-    Train a machine learning model.
+    """Train a machine learning model.
 
     Args:
         model: The model to train.
@@ -69,8 +62,7 @@ def evaluate_model(
     plot: bool = True,
     save_plot: Optional[str] = None,
 ) -> Dict[str, Union[Dict[str, float], np.ndarray, float]]:
-    """
-    Evaluate a machine learning model.
+    """Evaluate a machine learning model.
 
     Args:
         model: The trained model.
@@ -160,8 +152,7 @@ def train_linear_regression(
     save_plot: Optional[str] = None,
     **kwargs: Dict[str, Any],
 ) -> Dict[str, Union[Dict[str, float], np.ndarray, float, BaseEstimator]]:
-    """
-    Train and evaluate a linear regression model.
+    """Train and evaluate a linear regression model.
 
     Args:
         X: Training features.
@@ -198,8 +189,7 @@ def train_random_forest(
     save_plot: Optional[str] = None,
     **kwargs: Dict[str, Any],
 ) -> Dict[str, Union[Dict[str, float], np.ndarray, float, BaseEstimator]]:
-    """
-    Train and evaluate a random forest model.
+    """Train and evaluate a random forest model.
 
     Args:
         X: Training features.
@@ -242,8 +232,7 @@ def train_logistic_regression(
     save_plot: Optional[str] = None,
     **kwargs: Dict[str, Any],
 ) -> Dict[str, Union[Dict[str, float], np.ndarray, float, BaseEstimator]]:
-    """
-    Train and evaluate a logistic regression model.
+    """Train and evaluate a logistic regression model.
 
     Args:
         X: Training features.

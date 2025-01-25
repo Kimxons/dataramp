@@ -1,11 +1,19 @@
+"""Utility functions for data preprocessing and analysis.
+
+This module provides various utility functions for working with pandas DataFrames,
+including functions for identifying numeric and categorical variables, data encoding,
+and descriptive statistics.
+"""
+
 from __future__ import annotations
 
 import platform
-from typing import List, Union
+from typing import List, Optional, Union
 
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+import seaborn as sns
 from sklearn.preprocessing import OneHotEncoder
 from tqdm import tqdm
 
@@ -193,3 +201,63 @@ def target_encode(df: pd.DataFrame, col: str, target_column: str) -> pd.DataFram
     df[f"{col}_encoded"] = df[col].map(target_mean)
 
     return df
+
+
+def display_missing(
+    df: pd.DataFrame,
+    plot: bool = False,
+    exclude_zero: bool = False,
+    sort_by: str = "missing_count",
+    ascending: bool = False,
+) -> Optional[pd.DataFrame]:
+    """Analyze missing values in a pandas DataFrame.
+
+    Parameters:
+    -----------
+    df : pandas.DataFrame
+        Input DataFrame to analyze
+    plot : bool, optional
+        Whether to generate a missing values heatmap (default: False)
+    exclude_zero : bool, optional
+        Exclude columns with no missing values (default: False)
+    sort_by : str, optional
+        Column to sort results by ('missing_count' or 'missing_percent', default: 'missing_count')
+    ascending : bool, optional
+        Sort in ascending order (default: False)
+
+    Returns:
+    --------
+    pandas.DataFrame or None
+        DataFrame with missing value analysis or None if plot is True
+
+    Raises:
+    -------
+    ValueError: If input DataFrame is None
+    TypeError: If input is not a DataFrame or Series
+    """
+    if df is None:
+        raise ValueError("Expected a pandas DataFrame, but got None")
+
+    if not isinstance(df, (pd.DataFrame, pd.Series)):
+        raise TypeError("df must be a pandas DataFrame")
+
+    missing = df.isna().sum().to_frame(name="missing_count")
+    missing["missing_percent"] = missing["missing_count"] / len(df) * 100
+    missing = missing.reset_index().rename(columns={"index": "variable"})
+
+    if exclude_zero:
+        missing = missing[missing["missing_count"] > 0]
+
+    missing = missing.sort_values(by=sort_by, ascending=ascending)
+
+    if plot:
+        plt.figure(figsize=(12, 6))
+        plt.title("Missing Values Heatmap")
+        sns.heatmap(df.isna(), cmap="Reds", cbar=False)
+        plt.xticks(rotation=90)
+        plt.yticks(rotation=0)
+        plt.tight_layout()
+        plt.show()
+        return None
+
+    return missing

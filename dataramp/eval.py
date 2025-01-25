@@ -4,18 +4,9 @@ from typing import Dict, List, Optional, Union
 import numpy as np
 import pandas as pd
 from scipy.stats import ttest_rel
-from sklearn.base import BaseEstimator, ClassifierMixin, RegressorMixin
-from sklearn.metrics import (
-    accuracy_score,
-    classification_report,
-    confusion_matrix,
-    f1_score,
-    mean_squared_error,
-    precision_score,
-    r2_score,
-    recall_score,
-)
-from sklearn.model_selection import cross_val_score, cross_validate
+from sklearn.base import ClassifierMixin, RegressorMixin
+from sklearn.metrics import classification_report, confusion_matrix
+from sklearn.model_selection import cross_validate
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 logger = logging.getLogger(__name__)
@@ -25,8 +16,7 @@ class ModelEvaluator:
     """Class for evaluating machine learning models."""
 
     def __init__(self, model: Union[ClassifierMixin, RegressorMixin]) -> None:
-        """
-        Initialize the ModelEvaluator.
+        """Initialize the ModelEvaluator.
 
         Args:
             model: The model to evaluate.
@@ -40,8 +30,7 @@ class ModelEvaluator:
         cv: int = 5,
         scoring: Optional[Union[str, List[str]]] = None,
     ) -> Dict[str, List[float]]:
-        """
-        Perform cross-validation and return scores.
+        """Perform cross-validation and return scores.
 
         Args:
             X: Features.
@@ -81,8 +70,7 @@ class ModelEvaluator:
         cv: int = 5,
         target_names: Optional[List[str]] = None,
     ) -> str:
-        """
-        Generate a cross-validation report.
+        """Generate a cross-validation report.
 
         Args:
             X: Features.
@@ -136,8 +124,7 @@ class ModelEvaluator:
         y: pd.Series,
         labels: Optional[List[int]] = None,
     ) -> np.ndarray:
-        """
-        Generate a confusion matrix report.
+        """Generate a confusion matrix report.
 
         Args:
             X: Features.
@@ -175,8 +162,7 @@ def perform_ab_test(
     cv: int = 5,
     scoring: Optional[Union[str, List[str]]] = None,
 ) -> Dict[str, Dict[str, Union[float, List[float]]]]:
-    """
-    Perform A/B testing between two models.
+    """Perform A/B testing between two models.
 
     Args:
         model_a: The first model to compare.
