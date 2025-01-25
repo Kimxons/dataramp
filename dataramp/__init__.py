@@ -1,3 +1,5 @@
+"""DataRamp package for data manipulation and transformation."""
+
 import subprocess
 from typing import Optional
 
