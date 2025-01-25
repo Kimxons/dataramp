@@ -3,7 +3,7 @@
 import subprocess
 from typing import Optional
 
-__version__ = "0.1.2"
+__version__ = "0.1.5"
 
 
 def get_git_revision() -> Optional[str]:
