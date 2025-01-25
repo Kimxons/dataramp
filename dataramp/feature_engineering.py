@@ -1,3 +1,8 @@
+"""This module provides classes for feature engineering and selection in machine learning pipelines.
+
+It includes tools for handling missing values, encoding categorical variables, and selecting important features.
+"""
+
 import logging
 
 from sklearn.compose import ColumnTransformer
