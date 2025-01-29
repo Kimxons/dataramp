@@ -18,15 +18,15 @@ logging.basicConfig(level=logging.INFO)
 
 # Model serialization methods
 SUPPORTED_MODEL_METHODS = {
-    "joblib": jb.dump,
-    "pickle": pk.dump,
+    "joblib": (jb.dump, "joblib"),
+    "pickle": (pk.dump, "pkl"),
 }
 
 # Data serialization methods
 SUPPORTED_DATA_METHODS = {
-    "parquet": (pd.DataFrame.to_parquet, "data.parquet"),
-    "feather": (pd.DataFrame.to_feather, "data.feather"),
-    "csv": (pd.DataFrame.to_csv, "data.csv"),
+    "parquet": (pd.DataFrame.to_parquet, "parquet"),
+    "feather": (pd.DataFrame.to_feather, "feather"),
+    "csv": (pd.DataFrame.to_csv, "csv"),
 }
 
 
@@ -45,6 +45,9 @@ def get_project_root(filepath: str) -> str:
     if not filepath:
         raise ValueError("Empty or None filepath provided.")
     try:
+        # Check if the filepath points to a file and get its directory
+        if os.path.isfile(filepath):
+            filepath = os.path.dirname(filepath)
         paths = [
             "src",
             "src/scripts/ingest",
@@ -53,12 +56,18 @@ def get_project_root(filepath: str) -> str:
             "src/outputs",
             "src/datasets",
         ]
+        # Convert paths to OS-specific separators
+        paths = [p.replace("/", os.path.sep) for p in paths]
         for path in paths:
-            if filepath.endswith(path.replace("/", os.path.sep)):
-                return str(Path(filepath).parents[len(path.split(os.path.sep)) - 1])
+            # Check if the directory ends with the path
+            if filepath.endswith(path):
+                parts = path.split(os.path.sep)
+                depth = len(parts)
+                project_root = Path(filepath).parents[depth - 1]
+                return str(project_root)
+        return filepath
     except Exception as e:
         raise ValueError(f"Error in get_project_root: {e}") from e
-    return filepath
 
 
 def get_path(dir: str) -> str:
@@ -79,14 +88,10 @@ def get_path(dir: str) -> str:
         if not os.path.isfile(config_path):
             raise FileNotFoundError(f"No config file found at {config_path}")
         with open(config_path) as configfile:
-            try:
-                config = json.load(configfile)
-            except json.JSONDecodeError as e:
-                raise ValueError(
-                    f"Error decoding JSON in config file {config_path}: {e}"
-                ) from e
+            config = json.load(configfile)
         if dir not in config:
             raise KeyError(f"No key {dir} in config file {config_path}")
+        # Join the project root with the relative path from config
         path = os.path.join(homedir, config[dir])
         return path
     except Exception as e:
@@ -145,14 +150,14 @@ def create_project(project_name: str):
     for dir in dirs:
         create_directory(dir)
 
+    # Store relative paths in the config
     config = {
         "description": "Configure the project settings",
-        "base_path": str(base_path),
-        "data_path": str(data_path),
-        "raw_data_path": str(raw_data_path),
-        "processed_data_path": str(processed_data_path),
-        "output_path": str(output_path),
-        "models_path": str(models_path),
+        "data_path": "datasets",
+        "raw_data_path": "datasets/raw",
+        "processed_data_path": "datasets/processed",
+        "output_path": "outputs",
+        "models_path": "outputs/models",
     }
 
     config_path = base_path / ".datahelprc"
@@ -183,7 +188,7 @@ def model_save(model: object, name: str = "model", method: str = "joblib"):
 
     try:
         save_func, ext = SUPPORTED_MODEL_METHODS[method]
-        model_path = Path(get_path("models_path")) / f"{name}.{ext.split('.')[-1]}"
+        model_path = Path(get_path("models_path")) / f"{name}.{ext}"
         create_directory(model_path.parent)
 
         with open(model_path, "wb") as f:
@@ -216,9 +221,7 @@ def data_save(
 
     try:
         save_func, ext = SUPPORTED_DATA_METHODS[method]
-        data_path = (
-            Path(get_path("processed_data_path")) / f"{name}.{ext.split('.')[-1]}"
-        )
+        data_path = Path(get_path("processed_data_path")) / f"{name}.{ext}"
         create_directory(data_path.parent)
 
         if isinstance(data, pd.Series):
@@ -233,16 +236,3 @@ def data_save(
     except Exception as e:
         logging.error(f"Data save failed: {str(e)}")
         raise
-
-
-"""Example usage:
-# Save model
-from sklearn.ensemble import RandomForestClassifier
-model = RandomForestClassifier()
-model_save(model, "rf_model", method="joblib")
-
-# Save data
-import pandas as pd
-df = pd.DataFrame({"col1": [1,2,3], "col2": ["a","b","c"]})
-data_save(df, "processed_data", method="parquet")
-"""
