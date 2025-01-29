@@ -120,6 +120,21 @@ class RangeDetector(OutlierDetector):
         Tukey's factor.
     method : str, optional (default="ETI")
         Method to compute credible intervals. Supported methods: "ETI" (Equal-tailed interval) or "HDI" (Highest Density Interval).
+
+    Examples:
+    --------
+    >>> import numpy as np
+    >>> from dataramp.outlier import RangeDetector
+    >>> X = np.array([1, 2, 3, 4, 100])
+    >>> detector = RangeDetector(interval_length=0.5, k=1.5, method="ETI")
+    >>> detector.fit(X)
+    >>> detector.transform(X)
+    array([False, False, False, False,  True])
+
+    >>> detector = RangeDetector(interval_length=0.5, k=1.5, method="HDI")
+    >>> detector.fit(X)
+    >>> detector.transform(X)
+    array([False, False, False, False,  True])
     """
 
     def __init__(
