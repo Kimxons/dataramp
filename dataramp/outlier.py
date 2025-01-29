@@ -177,14 +177,11 @@ class RangeDetector(OutlierDetector):
         """Compute Highest Density Interval (HDI) bounds."""
         x_sorted = np.sort(x)
         n = len(x)
-        n_included = max(
-            1, int(np.ceil(self.interval_length * n))
-        )  # Ensure at least one element
+        n_included = max(1, int(np.ceil(self.interval_length * n)))
 
         start_indices = np.arange(n - n_included + 1)
         end_indices = start_indices + (n_included - 1)
 
-        # Compute interval widths and find the smallest one
         interval_widths = x_sorted[end_indices] - x_sorted[start_indices]
         min_index = np.argmin(interval_widths)
 
