@@ -1,3 +1,9 @@
+"""Core functionality for managing data science project structures and model persistence.
+
+This module provides utilities for creating standardized data science project directories,
+managing file paths, and saving machine learning models using different serialization methods.
+"""
+
 import json
 import logging
 import os
