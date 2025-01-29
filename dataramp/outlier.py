@@ -5,17 +5,16 @@ including interquartile range and interval-based detection.
 """
 
 import logging
-import numbers
 from typing import Tuple, Union
 
 import numpy as np
-from sklearn.base import BaseEstimator
+from sklearn.base import BaseEstimator, TransformerMixin
 from sklearn.exceptions import NotFittedError
 
 logger = logging.getLogger(__name__)
 
 
-class OutlierDetector:
+class OutlierDetector(BaseEstimator, TransformerMixin):
     """Base class for all outlier detectors."""
 
     def __init__(self):
@@ -46,101 +45,136 @@ class OutlierDetector:
         self : OutlierDetector
             Returns an instance of the outlier detector.
         """
-        self._fit(x, y)
+        x = self._validate_input(x)
+        self._fit(x)
         self._is_fitted = True
         return self
 
-    def _fit(self, x, y=None):
-        """Internal method for fitting the outlier detector."""
-        raise NotImplementedError("Subclasses must implement _fit method.")
+    def tranformer(self, x: np.ndarray) -> np.ndarray:
+        """Transform input data by flagging/marking outliers.
+
+        Parameters
+        ----------
+        x : np.ndarray, shape=(n_samples)
+            Input data.
+
+        Returns:
+        -------
+        outliers : np.ndarray
+            Boolean mask indicating outliers.
+        """
+        if not self._is_fitted:
+            raise NotFittedError("Call 'fit' before transforming data.")
+        return self._detect_outliers(x)
+
+    def fit_predict(self, x: np.ndarray, y=None) -> np.ndarray:
+        """Fit detector and return outlier mask."""
+        return self.fit(x).transform(x)
 
     def get_outliers(
         self, indices: bool = False
-    ) -> Union[np.ndarray, Tuple[np.ndarray, np.ndarray]]:
+    ) -> Union[np.ndarray, Tuple[np.ndarray]]:
         """Get indices or mask of outliers.
 
         Parameters
         ----------
         indices : bool, optional (default=False)
-            If True, return an array of integers; otherwise, return a boolean mask.
+            If True, return an array of indices; otherwise, return a boolean mask.
 
         Returns:
         -------
-        outliers : np.ndarray or Tuple[np.ndarray, np.ndarray]
+        outliers : np.ndarray or Tuple[np.ndarray]
             Array of indices or boolean mask indicating outliers.
         """
-        return (np.where(self._support)[0],) if indices else self._support
+        if not self._is_fitted:
+            raise NotFittedError("Call 'fit' before getting outliers.")
+        return np.where(self._support)[0] if indices else self._support
+
+    def _validate_input(self, x: np.ndarray) -> np.ndarray:
+        """Validates input data."""
+        if not isinstance(x, np.ndarray):
+            x = np.asarray(x)
+        if x.size == 0:
+            raise ValueError("Input array is empty.")
+        if not np.issubdtype(x.dtype, np.number):
+            raise ValueError("Input must be numeric.")
+        return x
+
+    def _fit(self, x: np.ndarray):
+        """Internal method for fitting the outlier detector."""
+        raise NotImplementedError("Subclasses must implement _fit method.")
+
+    def _detect_outliers(self, x: np.ndarray) -> np.ndarray:
+        """Internal method to detect outliers."""
+        raise NotImplementedError("Subclasses must implement _detect_outliers method.")
 
 
-class RangeDetector(BaseEstimator, OutlierDetector):
-    r"""Interquartile range or interval-based outlier detection method.
-
-    The default settings compute the usual interquartile range method.
+class RangeDetector(OutlierDetector):
+    """Interquartile range or interval-based outlier detection method.
 
     Parameters
     ----------
     interval_length : float, optional (default=0.5)
-        Compute ``interval_length``\% credible interval. This is a value in [0, 1].
+        Compute ``interval_length``% credible interval. Must be in [0, 1].
     k : float, optional (default=1.5)
         Tukey's factor.
     method : str, optional (default="ETI")
-        Method to compute credible intervals. Supported methods are Highest
-        Density interval (``method="HDI"``) and Equal-tailed interval
-        (``method="ETI"``).
+        Method to compute credible intervals. Supported methods: "ETI" (Equal-tailed interval) or "HDI" (Highest Density Interval).
     """
 
     def __init__(
         self, interval_length: float = 0.5, k: float = 1.5, method: str = "ETI"
     ):
+        super().__init__()
         self.interval_length = interval_length
         self.k = k
         self.method = method
 
-    def _fit(self, x, y=None):
-        if self.method not in ("ETI", "HDI"):
-            raise ValueError(
-                "Invalid value for method. Allowed string "
-                'values are "ETI" and "HDI".'
-            )
+    def _fit(self, x: np.ndarray):
+        """Compute bounds for detecting outliers."""
+        if self.method not in {"ETI", "HDI"}:
+            raise ValueError('Invalid method. Choose "ETI" or "HDI".')
 
-        if (
-            not isinstance(self.interval_length, numbers.Number)
-            or not 0 <= self.interval_length <= 1
-        ):
+        if not (0 <= self.interval_length <= 1):
             raise ValueError(
-                f"Interval length must a value in [0, 1]; got {self.interval_length}."
+                f"Interval length must be in [0, 1]; got {self.interval_length}."
             )
 
         if self.method == "ETI":
-            lower = 100 * (1 - self.interval_length) / 2
-            upper = 100 * (1 + self.interval_length) / 2
-
-            lb, ub = np.percentile(x, [lower, upper])
+            lb, ub = self._eti_bounds(x)
         else:
-            n = len(x)
-            xsorted = np.sort(x)
-            n_included = int(np.ceil(self.interval_length * n))
-            if n_included < 1:
-                raise ValueError(
-                    "Interval length is too small, resulting in zero elements to include."
-                )
-
-            # Start and end indices for possible intervals
-            start_indices = np.arange(n - n_included + 1)
-            end_indices = start_indices + (n_included - 1)
-
-            # Widths of all possible intervals
-            ci = xsorted[end_indices] - xsorted[start_indices]
-            j = np.argmin(ci)
-
-            hdi_min = xsorted[start_indices[j]]
-            hdi_max = xsorted[end_indices[j]]
-
-            lb = hdi_min
-            ub = hdi_max
+            lb, ub = self._hdi_bounds(x)
 
         iqr = ub - lb
         lower_bound = lb - self.k * iqr
         upper_bound = ub + self.k * iqr
 
-        self._support = (x > upper_bound) | (x < lower_bound)
+        self._support = (x < lower_bound) | (x > upper_bound)
+        logger.debug(f"Computed bounds: Lower={lower_bound}, Upper={upper_bound}")
+
+    def _eti_bounds(self, x: np.ndarray) -> Tuple[float, float]:
+        """Compute Equal-Tailed Interval (ETI) bounds."""
+        lower = 100 * (1 - self.interval_length) / 2
+        upper = 100 * (1 + self.interval_length) / 2
+        return np.percentile(x, [lower, upper])
+
+    def _hdi_bounds(self, x: np.ndarray) -> Tuple[float, float]:
+        """Compute Highest Density Interval (HDI) bounds."""
+        x_sorted = np.sort(x)
+        n = len(x)
+        n_included = max(
+            1, int(np.ceil(self.interval_length * n))
+        )  # Ensure at least one element
+
+        start_indices = np.arange(n - n_included + 1)
+        end_indices = start_indices + (n_included - 1)
+
+        # Compute interval widths and find the smallest one
+        interval_widths = x_sorted[end_indices] - x_sorted[start_indices]
+        min_index = np.argmin(interval_widths)
+
+        return x_sorted[start_indices[min_index]], x_sorted[end_indices[min_index]]
+
+    def _detect_outliers(self, x: np.ndarray) -> np.ndarray:
+        """Detect outliers based on computed bounds."""
+        return (x < self._support[0]) | (x > self._support[1])
