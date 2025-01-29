@@ -84,7 +84,7 @@ def get_path(dir: str) -> str:
     """
     try:
         homedir = get_project_root(os.getcwd())
-        config_path = os.path.join(homedir, ".datahelprc")
+        config_path = os.path.join(homedir, ".dataramprc")
         if not os.path.isfile(config_path):
             raise FileNotFoundError(f"No config file found at {config_path}")
         with open(config_path) as configfile:
@@ -160,7 +160,7 @@ def create_project(project_name: str):
         "models_path": "outputs/models",
     }
 
-    config_path = base_path / ".datahelprc"
+    config_path = base_path / ".dataramprc"
     with open(config_path, "w") as config_file:
         json.dump(config, config_file, indent=4)
 
