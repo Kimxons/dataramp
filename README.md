@@ -20,3 +20,33 @@ Read the quick start guide [here](docs/quickstart.md).
 If you want to see some examples, you can look at the examples in the [examples](examples/) directory.
 
 You can install Dataramp and learn more from [PyPi](https://pypi.org/project/dataramp/).
+
+
+# Example
+```python
+# Create and register a model pipeline
+preprocessor = Pipeline([
+    ('scaler', StandardScaler()),
+    ('imputer', SimpleImputer())
+])
+
+pipeline = Pipeline([
+    ('preprocess', preprocessor),
+    ('classifier', LogisticRegression())
+])
+
+model_save(pipeline, "classifier", method="joblib", metadata={"dataset": "2023_sales"})
+register_model(
+    pipeline,
+    name="sales_classifier",
+    version="v1.0",
+    metadata={
+        "metrics": {"accuracy": 0.89},
+        "serialization_method": "joblib"
+    }
+)
+
+# Create versioned dataset
+df = pd.read_csv("data.csv")
+data_save(df, "processed_data", versioning=True, description="Initial cleaned version")
+```

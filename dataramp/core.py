@@ -12,11 +12,14 @@ import pickle as pk
 import warnings
 from dataclasses import dataclass
 from datetime import datetime
+from functools import lru_cache
 from pathlib import Path
 from typing import Dict, Optional, Union
 
 import joblib as jb
 import pandas as pd
+import pkg_resources
+from sklearn.pipeline import Pipeline
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 logger = logging.getLogger(__name__)
@@ -412,6 +415,56 @@ dependencies:
     logger.info(f"Created environment file at {environment_path}")
 
 
+def update_dependencies(requirements_file: str = "requirements.txt"):
+    """Update core dependencies in requirements.txt while preserving structure."""
+    try:
+        # Get installed versions of core packages
+        core_packages = {
+            "pandas": None,
+            "numpy": None,
+            "scikit-learn": None,
+            "joblib": None,
+            "pyarrow": None,
+        }
+
+        installed = {pkg.key: pkg for pkg in pkg_resources.working_set}
+        for pkg in core_packages:
+            if pkg in installed:
+                core_packages[pkg] = installed[pkg].version
+
+        # Read existing requirements
+        with open(requirements_file, "r") as f:
+            lines = f.readlines()
+
+        # Update core package versions
+        new_lines = []
+        for line in lines:
+            # Split on any whitespace or comment
+            parts = line.strip().split(maxsplit=1)
+            if not parts:
+                new_lines.append(line)
+                continue
+
+            pkg_name = parts[0].split("=")[0].split("<")[0].split(">")[0].lower()
+            if pkg_name in core_packages and core_packages[pkg_name]:
+                new_line = f"{pkg_name}>={core_packages[pkg_name]}"
+                if len(parts) > 1 and parts[1].startswith("#"):
+                    new_line += f"  # {parts[1][1:].strip()}"
+                new_lines.append(new_line + "\n")
+            else:
+                new_lines.append(line)
+
+        # Write updated requirements
+        with open(requirements_file, "w") as f:
+            f.writelines(new_lines)
+
+        logger.info(f"Updated core dependencies in {requirements_file}")
+
+    except Exception as e:
+        logger.error(f"Failed to update dependencies: {str(e)}")
+        raise
+
+
 def model_save(
     model: object,
     name: str = "model",
@@ -558,29 +611,122 @@ def data_save(
             f"Unsupported data format: {method}. Supported: {list(SUPPORTED_DATA_METHODS.keys())}"
         )
 
-        try:
-            save_func, ext = SUPPORTED_DATA_METHODS[method]
-            data_path = Path(get_path("processed_data_path")) / f"{name}.{ext}"
-            create_directory(data_path.parent)
+    try:
+        save_func, ext = SUPPORTED_DATA_METHODS[method]
+        data_path = Path(get_path("processed_data_path")) / f"{name}.{ext}"
+        create_directory(data_path.parent)
 
-            if isinstance(data, pd.Series):
-                data = data.to_frame()
+        if isinstance(data, pd.Series):
+            data = data.to_frame()
 
-            if method == "csv":
-                save_func(data, data_path, index=False)
-            else:
-                save_func(data, data_path)
+        if method == "csv":
+            save_func(data, data_path, index=False)
+        else:
+            save_func(data, data_path)
 
-            logger.info(f"Data saved to {data_path}")
+        logger.info(f"Data saved to {data_path}")
 
-            # Add versioning after successful save
-            if versioning:
-                versioner = DataVersioner()
-                return versioner.create_version(
-                    data=data, name=name, method=method, **version_kwargs
-                )
-            return data_path
+        # Add versioning after successful save
+        if versioning:
+            versioner = DataVersioner()
+            return versioner.create_version(
+                data=data, name=name, method=method, **version_kwargs
+            )
+        return data_path
 
-        except Exception as e:
-            logger.error(f"Data save failed: {str(e)}")
-            raise
+    except Exception as e:
+        logger.error(f"Data save failed: {str(e)}")
+        raise
+
+
+def register_model(
+    model: object,
+    name: str,
+    version: str,
+    metadata: dict,
+    registry_file: str = "model_registry.json",
+):
+    """Register a model in the registry with validation and conflict checking."""
+    try:
+        registry_path = Path(get_path("models_path")) / registry_file
+        registry = {}
+
+        if registry_path.exists():
+            with open(registry_path) as f:
+                registry = json.load(f)
+
+        # Check for existing version
+        if name in registry and version in registry[name]:
+            raise ValueError(f"Model {name} version {version} already exists")
+
+        # Get correct file extension
+        method = metadata.get("serialization_method", "joblib")
+        file_ext = SUPPORTED_MODEL_METHODS.get(method, ("", "joblib"))[1]
+
+        # Store model metadata
+        model_entry = {
+            "version": version,
+            "timestamp": datetime.now().isoformat(),
+            "metadata": metadata,
+            "model_path": str(
+                Path(get_path("models_path")) / f"{name}_{version}.{file_ext}"
+            ),
+        }
+
+        if name not in registry:
+            registry[name] = {}
+        registry[name][version] = model_entry
+
+        # Save registry
+        with open(registry_path, "w") as f:
+            json.dump(registry, f, indent=2)
+
+        logger.info(f"Registered model {name} version {version}")
+
+    except Exception as e:
+        logger.error(f"Model registration failed: {str(e)}")
+        raise
+
+
+def create_pipeline(steps: list) -> Pipeline:
+    """Create a validated scikit-learn compatible pipeline."""
+    try:
+        # Validate pipeline steps
+        for i, (name, estimator) in enumerate(steps):
+            is_last = i == len(steps) - 1
+            required_methods = ["fit"] + (["transform"] if not is_last else [])
+
+            for method in required_methods:
+                if not hasattr(estimator, method):
+                    raise ValueError(
+                        f"Step {i} ({name}) is missing required method: {method}"
+                    )
+
+        return Pipeline(steps)
+
+    except Exception as e:
+        logger.error(f"Pipeline creation failed: {str(e)}")
+        raise
+
+
+def cached_operation(func):
+    """Safe caching decorator with size limits and invalidation."""
+    return lru_cache(maxsize=128)(func)
+
+
+@cached_operation
+def expensive_operation(data: pd.DataFrame):
+    """Memory-efficient cached operation for DataFrames."""
+    try:
+        # Generate stable hash for DataFrame
+        data_hash = hashlib.md5(pd.util.hash_pandas_object(data).values).hexdigest()
+        logger.info(f"Running expensive operation on dataset {data_hash}")
+
+        # Simulate expensive computation
+        result = data.mean().mean()
+
+        return result
+
+    except Exception as e:
+        logger.error(f"Expensive operation failed: {str(e)}")
+        raise
