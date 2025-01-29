@@ -120,11 +120,21 @@ class RangeDetector(BaseEstimator, OutlierDetector):
             n = len(x)
             xsorted = np.sort(x)
             n_included = int(np.ceil(self.interval_length * n))
-            n_ci = n - n_included
-            ci = xsorted[n_included:] - xsorted[:n_ci]
+            if n_included < 1:
+                raise ValueError(
+                    "Interval length is too small, resulting in zero elements to include."
+                )
+
+            # Start and end indices for possible intervals
+            start_indices = np.arange(n - n_included + 1)
+            end_indices = start_indices + (n_included - 1)
+
+            # Widths of all possible intervals
+            ci = xsorted[end_indices] - xsorted[start_indices]
             j = np.argmin(ci)
-            hdi_min = xsorted[j]
-            hdi_max = xsorted[j + n_included]
+
+            hdi_min = xsorted[start_indices[j]]
+            hdi_max = xsorted[end_indices[j]]
 
             lb = hdi_min
             ub = hdi_max
