@@ -65,6 +65,7 @@ class OutlierDetector(BaseEstimator, TransformerMixin):
         """
         if not self._is_fitted:
             raise NotFittedError("Call 'fit' before transforming data.")
+        x = self._validate_input(x)
         return self._detect_outliers(x)
 
     def fit_predict(self, x: np.ndarray, y=None) -> np.ndarray:
@@ -144,6 +145,8 @@ class RangeDetector(OutlierDetector):
         self.interval_length = interval_length
         self.k = k
         self.method = method
+        self.lower_bound_ = None
+        self.upper_bound_ = None
 
     def _fit(self, x: np.ndarray):
         """Compute bounds for detecting outliers."""
@@ -161,11 +164,13 @@ class RangeDetector(OutlierDetector):
             lb, ub = self._hdi_bounds(x)
 
         iqr = ub - lb
-        lower_bound = lb - self.k * iqr
-        upper_bound = ub + self.k * iqr
+        self.lower_bound_ = lb - self.k * iqr
+        self.upper_bound_ = ub + self.k * iqr
 
-        self._support = (x < lower_bound) | (x > upper_bound)
-        logger.debug(f"Computed bounds: Lower={lower_bound}, Upper={upper_bound}")
+        self._support = (x < self.lower_bound_) | (x > self.upper_bound_)
+        logger.debug(
+            f"Computed bounds: Lower={self.lower_bound_}, Upper={self.upper_bound_}"
+        )
 
     def _eti_bounds(self, x: np.ndarray) -> Tuple[float, float]:
         """Compute Equal-Tailed Interval (ETI) bounds."""
@@ -189,4 +194,4 @@ class RangeDetector(OutlierDetector):
 
     def _detect_outliers(self, x: np.ndarray) -> np.ndarray:
         """Detect outliers based on computed bounds."""
-        return (x < self._support[0]) | (x > self._support[1])
+        return (x < self.lower_bound_) | (x > self.upper_bound_)
