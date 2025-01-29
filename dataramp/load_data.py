@@ -273,3 +273,24 @@ def data_load(source: Union[str, Path], method: str = "csv", **kwargs) -> pd.Dat
         )
 
     return loaders[method](source, **kwargs)
+
+
+"""Example usage
+# Simple CSV load
+df = data_load("data.csv")
+
+# Secure database load with parameters
+df = data_load(
+    "SELECT * FROM users WHERE age > :min_age",
+    method="database",
+    params={"min_age": 18},
+    connection_string="postgresql://user:pass@localhost/db"
+)
+
+# Large file processing
+for chunk in data_load("big.csv", chunksize=10000):
+    process(chunk)
+
+# Environment variable usage
+# Set DB_URI=postgresql://user:pass@localhost/db in environment
+df = data_load("SELECT * FROM table", method="database")"""

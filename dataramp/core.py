@@ -8,13 +8,17 @@ import json
 import logging
 import os
 import pickle as pk
+import warnings
+from datetime import datetime
 from pathlib import Path
-from typing import Union
+from typing import Optional, Union
 
 import joblib as jb
 import pandas as pd
 
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
+logger = logging.getLogger(__name__)
+
 
 # Model serialization methods
 SUPPORTED_MODEL_METHODS = {
@@ -108,7 +112,7 @@ def create_directory(path: Path):
 
 
 def create_project(project_name: str):
-    """Create a standard data science project directory structure.
+    """Create a standard data science project directory structure with dependency files.
 
     Args:
         project_name (str): The name of the project.
@@ -168,36 +172,193 @@ def create_project(project_name: str):
     with open(readme_path, "w") as readme:
         readme.write("Creates a standard data science project directory structure.")
 
+    readme_path = base_path / "README.md"
+    with open(readme_path, "w") as readme:
+        readme.write("Creates a standard data science project directory structure.")
 
-def model_save(model: object, name: str = "model", method: str = "joblib"):
-    """Save a model using the specified serialization method.
+    # Generate dependency management files
+    _generate_requirements_file(base_path)
+    _generate_environment_file(base_path)
 
-    Args:
-        model: The model object to save
-        name: Base name for the output file (without extension)
-        method: Serialization method (joblib|pickle)
+
+def _generate_requirements_file(project_path: Path):
+    """Generate a default requirements.txt file with core dependencies."""
+    requirements = [
+        "# Core dependencies",
+        "pandas>=1.3.0",
+        "numpy>=1.21.0",
+        "scikit-learn>=1.0.0",
+        "joblib>=1.1.0",
+        "pyarrow>=6.0.0  # Required for Parquet support",
+        "\n# Optional dependencies",
+        "# matplotlib>=3.5.0  # Uncomment for visualization",
+        "# seaborn>=0.11.2   # Uncomment for advanced plotting",
+    ]
+
+    requirements_path = project_path / "requirements.txt"
+    with open(requirements_path, "w") as f:
+        f.write("\n".join(requirements))
+    logger.info(f"Created requirements file at {requirements_path}")
+
+
+def _generate_environment_file(project_path: Path):
+    """Generate a default environment.yml file for Conda users."""
+    environment_content = """name: data_science_env
+channels:
+  - conda-forge
+  - defaults
+
+dependencies:
+  - python>=3.8
+  - pandas>=1.3.0
+  - numpy>=1.21.0
+  - scikit-learn>=1.0.0
+  - joblib>=1.1.0
+  - pyarrow>=6.0.0  # Parquet support
+  - pip
+
+  # Optional dependencies
+  # - matplotlib>=3.5.0
+  # - seaborn>=0.11.2
+
+  - pip:
+    # Add pip-only packages here
+    # - package>=1.0.0
+"""
+
+    environment_path = project_path / "environment.yml"
+    with open(environment_path, "w") as f:
+        f.write(environment_content)
+    logger.info(f"Created environment file at {environment_path}")
+
+
+def model_save(
+    model: object,
+    name: str = "model",
+    method: str = "joblib",
+    version: Union[str, int, None] = None,
+    version_format: str = "timestamp",  # or "increment"
+    models_dir: Union[str, Path] = None,
+    overwrite: bool = False,
+    metadata: Optional[dict] = None,
+) -> Path:
+    """Save a model with versioning and security checks.
+
+    Parameters:
+    -----------
+    model : object
+        The model object to save
+    name : str (default: "model")
+        Base name for the output file
+    method : str (default: "joblib")
+        Serialization method (joblib|pickle)
+    version : Union[str, int, None] (default: None)
+        Custom version identifier or versioning strategy
+    version_format : str (default: "timestamp")
+        Auto-versioning format (timestamp|increment)
+    models_dir : Union[str, Path] (default: get_path("models_path"))
+        Directory to save models
+    overwrite : bool (default: False)
+        Allow overwriting existing models
+    metadata : dict (optional)
+        Additional metadata to store with the model
+
+    Returns:
+    --------
+    Path: Path to the saved model file
+
+    Raises:
+    -------
+    ValueError: For invalid inputs or version conflicts
+    IOError: For file system errors
+
+    Example:
+    --------
+    >>> model_save(model, "rf_classifier", version="prod_v1")
+    Path('/models/rf_classifier_prod_v1.joblib')
     """
-    if model is None:
-        raise ValueError("Cannot save None model")
-
-    method = method.lower()
-    if method not in SUPPORTED_MODEL_METHODS:
-        raise ValueError(
-            f"Unsupported model format: {method}. Supported: {list(SUPPORTED_MODEL_METHODS.keys())}"
+    # Security check for pickle
+    if method == "pickle":
+        warnings.warn(
+            "Pickle serialization is not secure. Only load models from trusted sources.",
+            UserWarning,
         )
 
-    try:
-        save_func, ext = SUPPORTED_MODEL_METHODS[method]
-        model_path = Path(get_path("models_path")) / f"{name}.{ext}"
-        create_directory(model_path.parent)
+    # Validate model object
+    if not hasattr(model, "predict") and not hasattr(model, "transform"):
+        logger.warning(
+            "Model object doesn't appear to have standard scikit-learn methods"
+        )
 
+    # Set up paths
+    models_dir = Path(models_dir or get_path("models_path"))
+    models_dir.mkdir(parents=True, exist_ok=True)
+
+    # Determine versioning
+    version = _resolve_version(
+        name=name,
+        version=version,
+        version_format=version_format,
+        models_dir=models_dir,
+        method=method,
+    )
+
+    # Construct filename
+    file_ext = SUPPORTED_MODEL_METHODS[method][1]
+    filename = f"{name}_{version}.{file_ext}"
+    model_path = models_dir / filename
+
+    # Check for existing files
+    if model_path.exists() and not overwrite:
+        raise FileExistsError(
+            f"Model already exists at {model_path}. Use overwrite=True to replace."
+        )
+
+    # Save model
+    try:
+        save_func = SUPPORTED_MODEL_METHODS[method][0]
         with open(model_path, "wb") as f:
             save_func(model, f)
 
-        logging.info(f"Model saved to {model_path}")
+        # Save metadata
+        if metadata:
+            metadata_path = model_path.with_suffix(".json")
+            with open(metadata_path, "w") as f:
+                json.dump(metadata, f, indent=2)
+
+        logger.info(f"Saved model to {model_path}")
+        return model_path
+
     except Exception as e:
-        logging.error(f"Model save failed: {str(e)}")
+        logger.error(f"Failed to save model: {str(e)}")
+        if model_path.exists():
+            model_path.unlink()  # Clean up partial saves
         raise
+
+
+def _resolve_version(
+    name: str,
+    version: Union[str, int, None],
+    version_format: str,
+    models_dir: Path,
+    method: str,
+) -> str:
+    """Determine the appropriate version string."""
+    if version:
+        return str(version)
+
+    if version_format == "timestamp":
+        return datetime.now().strftime("%Y%m%d_%H%M%S")
+
+    if version_format == "increment":
+        pattern = f"{name}_v*.{SUPPORTED_MODEL_METHODS[method][1]}"
+        existing = list(models_dir.glob(pattern))
+        if not existing:
+            return "v1"
+        versions = [int(f.stem.split("_v")[-1]) for f in existing]
+        return f"v{max(versions) + 1}"
+
+    raise ValueError(f"Invalid version format: {version_format}")
 
 
 def data_save(
