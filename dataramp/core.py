@@ -9,15 +9,24 @@ import logging
 import os
 import pickle as pk
 from pathlib import Path
+from typing import Union
 
 import joblib as jb
+import pandas as pd
 
 logging.basicConfig(level=logging.INFO)
 
-# TODO: add support for parquet, feather, and other file formats
-SUPPORTED_METHODS = {
+# Model serialization methods
+SUPPORTED_MODEL_METHODS = {
     "joblib": jb.dump,
     "pickle": pk.dump,
+}
+
+# Data serialization methods
+SUPPORTED_DATA_METHODS = {
+    "parquet": (pd.DataFrame.to_parquet, "data.parquet"),
+    "feather": (pd.DataFrame.to_feather, "data.feather"),
+    "csv": (pd.DataFrame.to_csv, "data.csv"),
 }
 
 
@@ -155,32 +164,85 @@ def create_project(project_name: str):
         readme.write("Creates a standard data science project directory structure.")
 
 
-def model_save(model, name="model", method="joblib"):
-    """Save a model using the specified method.
+def model_save(model: object, name: str = "model", method: str = "joblib"):
+    """Save a model using the specified serialization method.
 
     Args:
-        model: The model to save.
-        name (str): The name of the model file.
-        method (str): The method to use for saving the model.
-
-    Raises:
-        ValueError: If the model is None or the method is not supported.
+        model: The model object to save
+        name: Base name for the output file (without extension)
+        method: Serialization method (joblib|pickle)
     """
     if model is None:
-        raise ValueError("Expecting a binary model file, got 'None'")
-    if method not in SUPPORTED_METHODS:
+        raise ValueError("Cannot save None model")
+
+    method = method.lower()
+    if method not in SUPPORTED_MODEL_METHODS:
         raise ValueError(
-            f"Method {method} not supported. Supported methods are: {list(SUPPORTED_METHODS.keys())}"
+            f"Unsupported model format: {method}. Supported: {list(SUPPORTED_MODEL_METHODS.keys())}"
         )
+
     try:
-        model_path = get_path("models_path")
-        create_directory(Path(model_path))  # Ensure the directory exists
-        file_name = f"{model_path}/{name}.{method}"
-        SUPPORTED_METHODS[method](model, file_name)
-        logging.info(f"Model saved successfully at {file_name}")
-    except PermissionError as e:
-        logging.error(
-            f"Permission error while saving model. Check file permissions. {e}"
-        )
+        save_func, ext = SUPPORTED_MODEL_METHODS[method]
+        model_path = Path(get_path("models_path")) / f"{name}.{ext.split('.')[-1]}"
+        create_directory(model_path.parent)
+
+        with open(model_path, "wb") as f:
+            save_func(model, f)
+
+        logging.info(f"Model saved to {model_path}")
     except Exception as e:
-        logging.error(f"Failed to save model due to {e}")
+        logging.error(f"Model save failed: {str(e)}")
+        raise
+
+
+def data_save(
+    data: Union[pd.DataFrame, pd.Series], name: str = "data", method: str = "parquet"
+):
+    """Save a DataFrame using the specified format.
+
+    Args:
+        data: The DataFrame or Series to save
+        name: Base name for the output file (without extension)
+        method: File format (parquet|feather|csv)
+    """
+    if data is None:
+        raise ValueError("Cannot save None data")
+
+    method = method.lower()
+    if method not in SUPPORTED_DATA_METHODS:
+        raise ValueError(
+            f"Unsupported data format: {method}. Supported: {list(SUPPORTED_DATA_METHODS.keys())}"
+        )
+
+    try:
+        save_func, ext = SUPPORTED_DATA_METHODS[method]
+        data_path = (
+            Path(get_path("processed_data_path")) / f"{name}.{ext.split('.')[-1]}"
+        )
+        create_directory(data_path.parent)
+
+        if isinstance(data, pd.Series):
+            data = data.to_frame()
+
+        if method == "csv":
+            save_func(data, data_path, index=False)
+        else:
+            save_func(data, data_path)
+
+        logging.info(f"Data saved to {data_path}")
+    except Exception as e:
+        logging.error(f"Data save failed: {str(e)}")
+        raise
+
+
+"""Example usage:
+# Save model
+from sklearn.ensemble import RandomForestClassifier
+model = RandomForestClassifier()
+model_save(model, "rf_model", method="joblib")
+
+# Save data
+import pandas as pd
+df = pd.DataFrame({"col1": [1,2,3], "col2": ["a","b","c"]})
+data_save(df, "processed_data", method="parquet")
+"""
