@@ -50,7 +50,7 @@ class OutlierDetector(BaseEstimator, TransformerMixin):
         self._is_fitted = True
         return self
 
-    def tranformer(self, x: np.ndarray) -> np.ndarray:
+    def transform(self, x: np.ndarray) -> np.ndarray:
         """Transform input data by flagging/marking outliers.
 
         Parameters
