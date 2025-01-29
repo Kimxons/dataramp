@@ -4,14 +4,16 @@ This module provides utilities for creating standardized data science project di
 managing file paths, and saving machine learning models using different serialization methods.
 """
 
+import hashlib
 import json
 import logging
 import os
 import pickle as pk
 import warnings
+from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Optional, Union
+from typing import Dict, Optional, Union
 
 import joblib as jb
 import pandas as pd
@@ -32,6 +34,186 @@ SUPPORTED_DATA_METHODS = {
     "feather": (pd.DataFrame.to_feather, "feather"),
     "csv": (pd.DataFrame.to_csv, "csv"),
 }
+
+
+@dataclass
+class DataVersion:
+    """Class representing a version of a dataset."""
+
+    version_id: str
+    timestamp: str
+    description: str
+    author: str
+    data_hash: str
+    file_path: Path
+    metadata: dict
+
+
+class DataVersioner:
+    """Manager for dataset versions with metadata tracking and integrity checks."""
+
+    def __init__(self, base_path: Optional[Path] = None):
+        self.base_path = base_path or Path(get_path("processed_data_path")) / "versions"
+        self.base_path.mkdir(parents=True, exist_ok=True)
+        self.history_file = self.base_path / "version_history.json"
+        self.versions = self._load_history()
+
+    def _load_history(self) -> Dict[str, DataVersion]:
+        """Load version history from JSON file."""
+        if self.history_file.exists():
+            with open(self.history_file) as f:
+                history = json.load(f)
+                return {
+                    k: DataVersion(
+                        version_id=k,
+                        timestamp=v["timestamp"],
+                        description=v["description"],
+                        author=v["author"],
+                        data_hash=v["data_hash"],
+                        file_path=Path(v["file_path"]),
+                        metadata=v["metadata"],
+                    )
+                    for k, v in history.items()
+                }
+        return {}
+
+    def _save_history(self):
+        """Save version history to JSON file."""
+        with open(self.history_file, "w") as f:
+            json.dump(
+                {k: vars(v) for k, v in self.versions.items()}, f, indent=2, default=str
+            )
+
+    def create_version(
+        self,
+        data: Union[pd.DataFrame, pd.Series],
+        name: str,
+        description: str = "",
+        author: Optional[str] = None,
+        version_format: str = "timestamp",
+        metadata: Optional[dict] = None,
+        method: str = "parquet",
+    ) -> DataVersion:
+        """Create a new version of a dataset with full metadata tracking.
+
+        Args:
+            data: The dataset to version
+            name: Base name for the dataset
+            description: Human-readable description of changes
+            author: Author of the version (default: current user)
+            version_format: Version ID strategy (timestamp|hash|increment)
+            metadata: Custom key-value metadata
+            method: Storage format (parquet|feather|csv)
+
+        Returns:
+            DataVersion: Created version object
+        """
+        if data is None:
+            raise ValueError("Cannot version None data")
+
+        # Generate version ID
+        data_hash = self._calculate_hash(data)
+        version_id = self._generate_version_id(data_hash, version_format, name)
+
+        # Create version directory
+        version_path = self.base_path / name / version_id
+        version_path.mkdir(parents=True, exist_ok=True)
+
+        # Save data
+        file_ext = SUPPORTED_DATA_METHODS[method][1]
+        data_file = version_path / f"data.{file_ext}"
+        data_save(data, data_file.stem, method=method)
+
+        # Save metadata
+        metadata_file = version_path / "metadata.json"
+        version_metadata = {
+            "author": author or os.getenv("USER", "unknown"),
+            "created": datetime.now().isoformat(),
+            "description": description,
+            "columns": (
+                list(data.columns) if isinstance(data, pd.DataFrame) else [data.name]
+            ),
+            "shape": data.shape,
+            "data_hash": data_hash,
+            "custom": metadata or {},
+        }
+        with open(metadata_file, "w") as f:
+            json.dump(version_metadata, f, indent=2)
+
+        # Create version record
+        version = DataVersion(
+            version_id=version_id,
+            timestamp=version_metadata["created"],
+            description=description,
+            author=version_metadata["author"],
+            data_hash=data_hash,
+            file_path=data_file,
+            metadata=version_metadata,
+        )
+
+        # Update history
+        self.versions[version_id] = version
+        self._save_history()
+
+        logger.info(f"Created new version {version_id} of dataset {name}")
+        return version
+
+    def _calculate_hash(self, data: Union[pd.DataFrame, pd.Series]) -> str:
+        """Calculate cryptographic hash of the dataset."""
+        if isinstance(data, pd.Series):
+            data = data.to_frame()
+        return hashlib.md5(pd.util.hash_pandas_object(data).values).hexdigest()
+
+    def _generate_version_id(
+        self, data_hash: str, version_format: str, name: str
+    ) -> str:
+        """Generate version identifier based on selected strategy."""
+        if version_format == "timestamp":
+            return datetime.now().strftime("%Y%m%d_%H%M%S")
+        if version_format == "hash":
+            return f"hash_{data_hash[:8]}"
+        if version_format == "increment":
+            existing = [
+                v for v in self.versions.values() if name in v.file_path.parent.name
+            ]
+            return f"v{len(existing) + 1}"
+        raise ValueError(f"Invalid version format: {version_format}")
+
+    def get_version(self, version_id: str) -> DataVersion:
+        """Retrieve a specific dataset version."""
+        if version_id not in self.versions:
+            raise KeyError(f"Version {version_id} not found")
+        return self.versions[version_id]
+
+    def list_versions(
+        self, dataset_name: Optional[str] = None
+    ) -> Dict[str, DataVersion]:
+        """List all available versions, optionally filtered by dataset name."""
+        if dataset_name:
+            return {
+                k: v
+                for k, v in self.versions.items()
+                if dataset_name in v.file_path.parent.name
+            }
+        return self.versions
+
+        def validate_version(self, version_id: str) -> bool:
+            """Validate data integrity for a specific version."""
+            version = self.get_version(version_id)
+
+            # Read data based on stored format
+            if version.file_path.suffix == ".parquet":
+                current_data = pd.read_parquet(version.file_path)
+            elif version.file_path.suffix == ".feather":
+                current_data = pd.read_feather(version.file_path)
+            else:
+                current_data = pd.read_csv(version.file_path)
+
+            current_hash = self._calculate_hash(current_data)
+            if current_hash != version.data_hash:
+                logger.error(f"Data corruption detected in version {version_id}")
+                return False
+            return True
 
 
 def get_project_root(filepath: str) -> str:
@@ -129,6 +311,7 @@ def create_project(project_name: str):
     data_path = base_path / "datasets"
     raw_data_path = data_path / "raw"
     processed_data_path = data_path / "processed"
+    versions_path = processed_data_path / "versions"
     output_path = base_path / "outputs"
     models_path = output_path / "models"
     src_path = base_path / "src"
@@ -149,6 +332,7 @@ def create_project(project_name: str):
         ingest_path,
         test_path,
         notebooks_path,
+        versions_path,
     ]
 
     for dir in dirs:
@@ -167,10 +351,6 @@ def create_project(project_name: str):
     config_path = base_path / ".dataramprc"
     with open(config_path, "w") as config_file:
         json.dump(config, config_file, indent=4)
-
-    readme_path = base_path / "README.md"
-    with open(readme_path, "w") as readme:
-        readme.write("Creates a standard data science project directory structure.")
 
     readme_path = base_path / "README.md"
     with open(readme_path, "w") as readme:
@@ -362,15 +542,13 @@ def _resolve_version(
 
 
 def data_save(
-    data: Union[pd.DataFrame, pd.Series], name: str = "data", method: str = "parquet"
-):
-    """Save a DataFrame using the specified format.
-
-    Args:
-        data: The DataFrame or Series to save
-        name: Base name for the output file (without extension)
-        method: File format (parquet|feather|csv)
-    """
+    data: Union[pd.DataFrame, pd.Series],
+    name: str = "data",
+    method: str = "parquet",
+    versioning: bool = False,
+    **version_kwargs,
+) -> Union[Path, DataVersion]:
+    """Save data with optional versioning."""
     if data is None:
         raise ValueError("Cannot save None data")
 
@@ -380,20 +558,29 @@ def data_save(
             f"Unsupported data format: {method}. Supported: {list(SUPPORTED_DATA_METHODS.keys())}"
         )
 
-    try:
-        save_func, ext = SUPPORTED_DATA_METHODS[method]
-        data_path = Path(get_path("processed_data_path")) / f"{name}.{ext}"
-        create_directory(data_path.parent)
+        try:
+            save_func, ext = SUPPORTED_DATA_METHODS[method]
+            data_path = Path(get_path("processed_data_path")) / f"{name}.{ext}"
+            create_directory(data_path.parent)
 
-        if isinstance(data, pd.Series):
-            data = data.to_frame()
+            if isinstance(data, pd.Series):
+                data = data.to_frame()
 
-        if method == "csv":
-            save_func(data, data_path, index=False)
-        else:
-            save_func(data, data_path)
+            if method == "csv":
+                save_func(data, data_path, index=False)
+            else:
+                save_func(data, data_path)
 
-        logging.info(f"Data saved to {data_path}")
-    except Exception as e:
-        logging.error(f"Data save failed: {str(e)}")
-        raise
+            logger.info(f"Data saved to {data_path}")
+
+            # Add versioning after successful save
+            if versioning:
+                versioner = DataVersioner()
+                return versioner.create_version(
+                    data=data, name=name, method=method, **version_kwargs
+                )
+            return data_path
+
+        except Exception as e:
+            logger.error(f"Data save failed: {str(e)}")
+            raise
