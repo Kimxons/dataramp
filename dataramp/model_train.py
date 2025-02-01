@@ -11,7 +11,7 @@ from typing import Any, Dict, Optional, Union
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-from sklearn.base import BaseEstimator
+from sklearn.base import BaseEstimator, is_classifier, is_regressor
 from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
 from sklearn.linear_model import LinearRegression, LogisticRegression
 from sklearn.metrics import (
@@ -32,7 +32,7 @@ def train_model(
     X: pd.DataFrame,
     y: pd.Series,
     model_name: str,
-    **kwargs: Dict[str, Any],
+    **fit_kwargs: Dict[str, Any],
 ) -> BaseEstimator:
     """Train a machine learning model.
 
@@ -41,7 +41,7 @@ def train_model(
         X: Training features.
         y: Training labels.
         model_name: Name of the model (for logging purposes).
-        **kwargs: Additional keyword arguments to pass to the model's `fit` method.
+        **fit_kwargs: Additional keyword arguments to pass to the model's `fit` method.
 
     Returns:
         The trained model.
@@ -55,7 +55,7 @@ def train_model(
 
     try:
         logger.info(f"Training {model_name} model...")
-        model.fit(X, y, **kwargs)
+        model.fit(X, y, **fit_kwargs)
         logger.info(f"{model_name} model trained successfully.")
         return model
     except Exception as e:
@@ -83,27 +83,38 @@ def evaluate_model(
 
     Returns:
         Dictionary containing evaluation results.
-    """
-    results = {}
 
+    Raises:
+        ValueError: If model_type is invalid or mismatched with the model.
+    """
+    if model_type not in ["classifier", "regressor"]:
+        raise ValueError("model_type must be 'classifier' or 'regressor'.")
+
+    if model_type == "classifier" and not is_classifier(model):
+        raise ValueError("The provided model is not a classifier.")
+    elif model_type == "regressor" and not is_regressor(model):
+        raise ValueError("The provided model is not a regressor.")
+
+    results = {}
+    y_np = y.to_numpy() if isinstance(y, pd.Series) else y
     y_pred = model.predict(X)
 
     if model_type == "classifier":
         results["classification_report"] = classification_report(
-            y, y_pred, output_dict=True
+            y_np, y_pred, output_dict=True
         )
-        results["confusion_matrix"] = confusion_matrix(y, y_pred)
+        results["confusion_matrix"] = confusion_matrix(y_np, y_pred)
 
         logger.info("Classification Report:")
-        logger.info(classification_report(y, y_pred))
+        logger.info(classification_report(y_np, y_pred))
         logger.info("Confusion Matrix:")
-        logger.info(confusion_matrix(y, y_pred))
+        logger.info(confusion_matrix(y_np, y_pred))
 
-        if plot and hasattr(model, "predict_proba") and len(np.unique(y)) == 2:
+        if plot and hasattr(model, "predict_proba") and len(np.unique(y_np)) == 2:
             logger.info("Generating ROC curve...")
             y_pred_proba = model.predict_proba(X)[:, 1]
-            fpr, tpr, _ = roc_curve(y, y_pred_proba)
-            roc_auc = roc_auc_score(y, y_pred_proba)
+            fpr, tpr, _ = roc_curve(y_np, y_pred_proba)
+            roc_auc = roc_auc_score(y_np, y_pred_proba)
 
             plt.figure()
             plt.plot(
@@ -117,21 +128,22 @@ def evaluate_model(
 
             if save_plot:
                 plt.savefig(save_plot)
+                plt.close()
             else:
                 plt.show()
 
             results["roc_auc"] = roc_auc
 
     elif model_type == "regressor":
-        results["mse"] = mean_squared_error(y, y_pred)
-        results["r2"] = r2_score(y, y_pred)
+        results["mse"] = mean_squared_error(y_np, y_pred)
+        results["r2"] = r2_score(y_np, y_pred)
 
         logger.info(f"MSE: {results['mse']:.4f}")
         logger.info(f"R2: {results['r2']:.4f}")
 
         if plot:
             logger.info("Generating residual plot...")
-            residuals = y - y_pred
+            residuals = y_np - y_pred
             plt.figure()
             plt.scatter(y_pred, residuals, color="blue", alpha=0.5)
             plt.axhline(y=0, color="red", linestyle="--")
@@ -141,6 +153,7 @@ def evaluate_model(
 
             if save_plot:
                 plt.savefig(save_plot)
+                plt.close()
             else:
                 plt.show()
 
@@ -154,7 +167,8 @@ def train_linear_regression(
     y_val: Optional[pd.Series] = None,
     plot: bool = True,
     save_plot: Optional[str] = None,
-    **kwargs: Dict[str, Any],
+    model_kwargs: Optional[Dict[str, Any]] = None,
+    **fit_kwargs: Dict[str, Any],
 ) -> Dict[str, Union[Dict[str, float], np.ndarray, float, BaseEstimator]]:
     """Train and evaluate a linear regression model.
 
@@ -165,22 +179,23 @@ def train_linear_regression(
         y_val: Validation labels (optional).
         plot: Whether to generate plots (default: True).
         save_plot: Path to save the plot (optional).
-        **kwargs: Additional keyword arguments to pass to the model's `fit` method.
+        model_kwargs: Keyword arguments for model initialization.
+        **fit_kwargs: Additional keyword arguments to pass to the model's `fit` method.
 
     Returns:
         Dictionary containing training and evaluation results.
     """
-    model = LinearRegression()
-    model = train_model(model, X, y, "linear regression", **kwargs)
+    model_kwargs = model_kwargs or {}
+    model = LinearRegression(**model_kwargs)
+    model = train_model(model, X, y, "linear regression", **fit_kwargs)
 
+    results = {"model": model}
     if X_val is not None and y_val is not None:
-        results = evaluate_model(
+        eval_results = evaluate_model(
             model, X_val, y_val, model_type="regressor", plot=plot, save_plot=save_plot
         )
-        results["model"] = model
-        return results
-    else:
-        return {"model": model}
+        results.update(eval_results)
+    return results
 
 
 def train_random_forest(
@@ -191,7 +206,8 @@ def train_random_forest(
     model_type: str = "classifier",
     plot: bool = True,
     save_plot: Optional[str] = None,
-    **kwargs: Dict[str, Any],
+    model_kwargs: Optional[Dict[str, Any]] = None,
+    **fit_kwargs: Dict[str, Any],
 ) -> Dict[str, Union[Dict[str, float], np.ndarray, float, BaseEstimator]]:
     """Train and evaluate a random forest model.
 
@@ -203,28 +219,29 @@ def train_random_forest(
         model_type: Type of model ('classifier' or 'regressor').
         plot: Whether to generate plots (default: True).
         save_plot: Path to save the plot (optional).
-        **kwargs: Additional keyword arguments to pass to the model's `fit` method.
+        model_kwargs: Keyword arguments for model initialization.
+        **fit_kwargs: Additional keyword arguments to pass to the model's `fit` method.
 
     Returns:
         Dictionary containing training and evaluation results.
     """
+    model_kwargs = model_kwargs or {}
     if model_type == "classifier":
-        model = RandomForestClassifier()
+        model = RandomForestClassifier(**model_kwargs)
     elif model_type == "regressor":
-        model = RandomForestRegressor()
+        model = RandomForestRegressor(**model_kwargs)
     else:
         raise ValueError("Invalid model_type. Choose 'classifier' or 'regressor'.")
 
-    model = train_model(model, X, y, "random forest", **kwargs)
+    model = train_model(model, X, y, "random forest", **fit_kwargs)
 
+    results = {"model": model}
     if X_val is not None and y_val is not None:
-        results = evaluate_model(
+        eval_results = evaluate_model(
             model, X_val, y_val, model_type=model_type, plot=plot, save_plot=save_plot
         )
-        results["model"] = model
-        return results
-    else:
-        return {"model": model}
+        results.update(eval_results)
+    return results
 
 
 def train_logistic_regression(
@@ -234,7 +251,8 @@ def train_logistic_regression(
     y_val: Optional[pd.Series] = None,
     plot: bool = True,
     save_plot: Optional[str] = None,
-    **kwargs: Dict[str, Any],
+    model_kwargs: Optional[Dict[str, Any]] = None,
+    **fit_kwargs: Dict[str, Any],
 ) -> Dict[str, Union[Dict[str, float], np.ndarray, float, BaseEstimator]]:
     """Train and evaluate a logistic regression model.
 
@@ -245,19 +263,21 @@ def train_logistic_regression(
         y_val: Validation labels (optional).
         plot: Whether to generate plots (default: True).
         save_plot: Path to save the plot (optional).
-        **kwargs: Additional keyword arguments to pass to the model's `fit` method.
+        model_kwargs: Keyword arguments for model initialization.
+        **fit_kwargs: Additional keyword arguments to pass to the model's `fit` method.
 
     Returns:
         Dictionary containing training and evaluation results.
     """
-    model = LogisticRegression(max_iter=1000)
-    model = train_model(model, X, y, "logistic regression", **kwargs)
+    model_kwargs = model_kwargs or {}
+    model_kwargs.setdefault("max_iter", 1000)
+    model = LogisticRegression(**model_kwargs)
+    model = train_model(model, X, y, "logistic regression", **fit_kwargs)
 
+    results = {"model": model}
     if X_val is not None and y_val is not None:
-        results = evaluate_model(
+        eval_results = evaluate_model(
             model, X_val, y_val, model_type="classifier", plot=plot, save_plot=save_plot
         )
-        results["model"] = model
-        return results
-    else:
-        return {"model": model}
+        results.update(eval_results)
+    return results
