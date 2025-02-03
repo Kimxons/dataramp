@@ -141,9 +141,11 @@ def _generate_statistical_section(df: pd.DataFrame) -> dict:
                 "mean": df[col].mean(),
                 "std": df[col].std(),
                 "zeros": (df[col] == 0).sum(),
-                "negatives": (df[col] < 0).sum()
-                if np.issubdtype(df[col].dtype, np.signedinteger)
-                else 0,
+                "negatives": (
+                    (df[col] < 0).sum()
+                    if np.issubdtype(df[col].dtype, np.signedinteger)
+                    else 0
+                ),
                 "outliers": _detect_outliers(df[col]),
             }
     return stats
@@ -414,9 +416,11 @@ def _analyze_statistical_issues(df: pd.DataFrame) -> dict:
         stats[col] = {
             "outliers": _detect_outliers(df[col]),
             "zeros": (df[col] == 0).sum(),
-            "negatives": (df[col] < 0).sum()
-            if np.issubdtype(df[col].dtype, np.signedinteger)
-            else 0,
+            "negatives": (
+                (df[col] < 0).sum()
+                if np.issubdtype(df[col].dtype, np.signedinteger)
+                else 0
+            ),
         }
     return stats
 
