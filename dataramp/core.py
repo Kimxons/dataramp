@@ -9,21 +9,26 @@ import json
 import logging
 import os
 import pickle as pk
+import tempfile
 import warnings
+from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import datetime
 from functools import lru_cache
+from importlib.metadata import version as pkg_version
 from pathlib import Path
-from typing import Dict, Optional, Union
+from typing import Dict, Optional, Tuple, Union
 
+import fasteners
 import joblib as jb
 import pandas as pd
-import pkg_resources
 from sklearn.pipeline import Pipeline
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 logger = logging.getLogger(__name__)
 
+# security config
+DISABLE_PICKLE = os.getenv("DISABLE_PICKLE", "true").lower() == "true"
 
 # Model serialization methods
 SUPPORTED_MODEL_METHODS = {
@@ -37,6 +42,13 @@ SUPPORTED_DATA_METHODS = {
     "feather": (pd.DataFrame.to_feather, "feather"),
     "csv": (pd.DataFrame.to_csv, "csv"),
 }
+
+
+def _calculate_hash(self, data: Union[pd.DataFrame, pd.Series]) -> str:
+    """Calculate cryptographic hash of the dataset using SHA-256."""
+    if isinstance(data, pd.Series):
+        data = data.to_frame()
+    return hashlib.sha256(pd.util.hash_pandas_object(data).values).hexdigest()
 
 
 @dataclass
@@ -718,13 +730,10 @@ def cached_operation(func):
 def expensive_operation(data: pd.DataFrame):
     """Memory-efficient cached operation for DataFrames."""
     try:
-        # Generate stable hash for DataFrame
         data_hash = hashlib.md5(pd.util.hash_pandas_object(data).values).hexdigest()
         logger.info(f"Running expensive operation on dataset {data_hash}")
 
-        # Simulate expensive computation
         result = data.mean().mean()
-
         return result
 
     except Exception as e:
