@@ -39,6 +39,10 @@ dependencies = [
     "tomli >= 2.0.1",
     "packaging >= 23.0",
     "black[jupyter] >= 22.3.0",
+    "joblib",
+    "pyarrow",
+    "click",
+    "fasteners",
 ]
 
 [project.urls]

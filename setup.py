@@ -1,4 +1,9 @@
 #!/usr/bin/env python
+"""Setup script for the dataramp package.
+
+This module handles the setup and installation configuration for the dataramp package,
+a data science library designed for data science and data analysis teams.
+"""
 
 from __future__ import print_function
 
@@ -17,6 +22,14 @@ if CURRENT_PYTHON < REQUIRED_PYTHON:
 
 
 def read_file(path):
+    """Read and return the contents of a file.
+
+    Args:
+        path (str): Path to the file to be read.
+
+    Returns:
+        str: Contents of the file.
+    """
     with open(path, encoding="utf-8") as f:
         return f.read()
 
