@@ -29,7 +29,7 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(mess
 logger = logging.getLogger(__name__)
 
 # Security configuration
-DISABLE_PICKLE = os.getenv("DISABLE_PICKLE", "true").lower() == "true"
+DISABLE_PICKLE = os.getenv("DISABLE_PICKLE", "false").lower() == "true"
 
 # Serialization methods
 SUPPORTED_MODEL_METHODS = {
@@ -70,14 +70,19 @@ class DataVersioner:
         self.lock_file = self.history_file.with_suffix(".lock")
         self.versions = self._load_history()
 
+    @lru_cache(maxsize=1)
     def _load_history(self) -> Dict[str, DataVersion]:
         """Load version history with error handling."""
         with fasteners.InterProcessLock(self.lock_file):
             if not self.history_file.exists():
                 return {}
+
             try:
                 with open(self.history_file) as f:
-                    history = json.load(f)
+                    history = f.read().strip()
+                    if not history:
+                        return {}
+                    history = json.loads(history)
             except (json.JSONDecodeError, IOError) as e:
                 logger.error(f"Error loading version history: {e}")
                 return {}
@@ -115,7 +120,7 @@ class DataVersioner:
         if isinstance(data, pd.Series):
             data = data.to_frame()
         return hashlib.sha256(
-            pd.util.hash_pandas_object(data).values.tobytes()
+            pd.util.hash_pandas_object(data, index=True).values.tobytes()
         ).hexdigest()
 
     def create_version(
@@ -237,19 +242,24 @@ class DataVersioner:
         """Validate data integrity with enhanced error handling."""
         version = self.get_version(version_id)
         try:
-            if version.file_path.suffix == ".parquet":
-                current_data = pd.read_parquet(version.file_path)
-            elif version.file_path.suffix == ".feather":
-                current_data = pd.read_feather(version.file_path)
+            ext = version.file_path.suffix[1:]  # Remove leading dot
+            if ext in ["parquet", "feather", "csv", "hdf5"]:
+                read_method = getattr(pd, f"read_{ext}", None)
+                if not read_method:
+                    logger.error(f"Unsupported validation format: {ext}")
+                    return False
+                current_data = read_method(version.file_path)
             else:
-                current_data = pd.read_csv(version.file_path)
+                logger.error(f"Unknown file extension: {version.file_path.suffix}")
+                return False
+
             current_hash = self._calculate_hash(current_data)
             if current_hash != version.data_hash:
                 logger.error(f"Data hash mismatch in version {version_id}")
                 return False
             return True
         except Exception as e:
-            logger.error(f"Validation failed for {version_id}: {str(e)}")
+            logger.error(f"Error validating version {version_id}: {e}")
             return False
 
 
@@ -258,9 +268,10 @@ def atomic_write(file_path: Path):
     """Secure atomic file writes with permissions."""
     temp = file_path.with_suffix(".tmp")
     try:
-        yield temp
+        with open(temp, "w") as file:
+            yield file
         os.chmod(temp, 0o600)
-        temp.replace(file_path)
+        temp.replace(file_path)  # Move temp file to final destination
     finally:
         if temp.exists():
             try:
