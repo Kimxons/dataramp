@@ -40,6 +40,9 @@ SUPPORTED_DATA_METHODS = {
     "parquet": (pd.DataFrame.to_parquet, "parquet"),
     "feather": (pd.DataFrame.to_feather, "feather"),
     "csv": (pd.DataFrame.to_csv, "csv"),
+    "hdf5": (pd.DataFrame.to_hdf, "hdf5"),
+    "orc": (pd.DataFrame.to_orc, "orc"),
+    "sql": (pd.DataFrame.to_sql, "sql"),
 }
 
 
@@ -147,6 +150,16 @@ class DataVersioner:
                 data.to_parquet(temp_path, compression=compression)
             elif method == "feather":
                 data.to_feather(temp_path, compression=compression)
+            elif method == "hdf5":
+                data.to_hdf(
+                    temp_path,
+                    key="data",
+                    mode="w",
+                    format="table",
+                    compression=compression,
+                )
+            elif method == "orc":
+                data.to_orc(temp_path, engine="pyarrow", compression=compression)
             else:
                 getattr(data, f"to_{method}")(temp_path)
 

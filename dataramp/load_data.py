@@ -229,6 +229,27 @@ def load_feather(file_path: Union[str, Path], **kwargs) -> pd.DataFrame:
         raise ValueError(f"Invalid Feather file: {file_path}") from e
 
 
+def load_orc(file_path: Union[str, Path], **kwargs) -> pd.DataFrame:
+    """Load data from an ORC file.
+
+    Parameters
+    ----------
+    file_path : Union[str, Path]
+        The path to the ORC file.
+    **kwargs : dict
+        Additional arguments to pass to pd.read_orc
+    """
+    file_path = Path(file_path)
+    if not file_path.exists():
+        raise FileNotFoundError(f"ORC file not found: {file_path}")
+
+    try:
+        return pd.read_orc(file_path, **kwargs)
+    except Exception as e:
+        logger.error(f"ORC loading error: {e}")
+        raise ValueError(f"Invalid ORC file: {file_path}") from e
+
+
 def data_load(source: Union[str, Path], method: str = "csv", **kwargs) -> pd.DataFrame:
     """Unified data loading interface with automatic format detection.
 
@@ -265,6 +286,7 @@ def data_load(source: Union[str, Path], method: str = "csv", **kwargs) -> pd.Dat
         "excel": load_excel,
         "json": load_json,
         "database": load_from_db,
+        "orc": load_orc,
     }
 
     if method not in loaders:
