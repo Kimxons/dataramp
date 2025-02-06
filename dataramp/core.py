@@ -13,8 +13,9 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import datetime
 from functools import lru_cache
+from importlib.metadata import PackageNotFoundError
 from importlib.metadata import version as pkg_version
-from pathlib import Path
+from pathlib import Path, PurePath
 from typing import Dict, Optional, Tuple, Union
 
 import fasteners
@@ -147,7 +148,6 @@ class DataVersioner:
             "custom": metadata or {},
         }
 
-        # Save metadata with atomic write
         metadata_file = version_path / "metadata.json"
         with atomic_write(metadata_file) as temp_path:
             with open(temp_path, "w") as f:
@@ -227,10 +227,11 @@ class DataVersioner:
 
 @contextmanager
 def atomic_write(file_path: Path):
-    """Context manager for atomic file writes."""
+    """Secure atomic file writes with permissions."""
     temp = file_path.with_suffix(".tmp")
     try:
         yield temp
+        os.chmod(temp, 0o600)
         temp.replace(file_path)
     finally:
         if temp.exists():
@@ -309,10 +310,15 @@ def create_project(project_name: str):
 def _generate_requirements_file(project_path: Path):
     """Generate requirements.txt with current versions."""
     core_packages = ["pandas", "numpy", "scikit-learn", "joblib", "pyarrow"]
-    versions = {pkg: pkg_version(pkg) for pkg in core_packages}
-    lines = [
-        f"{pkg}>={version}" for pkg, version in versions.items() if version is not None
-    ]
+    versions = {}
+    for pkg in core_packages:
+        try:
+            versions[pkg] = pkg_version(pkg)
+        except PackageNotFoundError:
+            versions[pkg] = None
+
+    lines = [f"{pkg}>={ver}" for pkg, ver in versions.items() if ver is not None]
+
     req_file = project_path / "requirements.txt"
     with atomic_write(req_file) as temp_path:
         temp_path.write_text("\n".join(lines))
@@ -353,33 +359,42 @@ def model_save(
     models_dir: Optional[Path] = None,
     overwrite: bool = False,
     metadata: Optional[dict] = None,
+    compression: Optional[Union[int, str]] = None,
 ) -> Path:
     """Secure model saving with versioning and atomic writes."""
-    if DISABLE_PICKLE and method == "pickle":
-        raise ValueError("Pickle serialization is disabled")
+    # Validate serialization method
+    method_info = SUPPORTED_MODEL_METHODS.get(method)
+    if method_info is None:
+        raise ValueError(f"Unsupported model serialization method: {method}")
 
-    if not hasattr(model, "fit"):
-        logger.warning("Model object missing required 'fit' method")
-
+    # Sanitize model name
+    safe_name = PurePath(name).name
     models_dir = Path(models_dir or get_path("models_path"))
     models_dir.mkdir(parents=True, exist_ok=True)
 
+    # Version resolution
     lock = models_dir / "versions.lock"
     with fasteners.InterProcessLock(lock):
-        version_id = _resolve_version(name, version, version_format, models_dir, method)
+        version_id = _resolve_version(
+            safe_name, version, version_format, models_dir, method
+        )
 
-    file_ext = SUPPORTED_MODEL_METHODS[method][1]
-    model_path = models_dir / f"{name}_{version_id}.{file_ext}"
+    file_ext = method_info[1]
+    model_path = models_dir / f"{safe_name}_{version_id}.{file_ext}"
 
     if model_path.exists() and not overwrite:
         raise FileExistsError(f"Model exists at {model_path}. Use overwrite=True.")
 
     try:
-        # Atomic model save
+        # Atomic model save with compression
         with atomic_write(model_path) as temp_path:
-            SUPPORTED_MODEL_METHODS[method][0](model, temp_path)
+            dump_method = method_info[0]
+            if method == "joblib":
+                dump_method(model, temp_path, compress=compression)
+            else:
+                dump_method(model, temp_path)
 
-        # Atomic metadata save
+        # Metadata handling
         if metadata:
             meta_path = model_path.with_suffix(".json")
             with atomic_write(meta_path) as temp_path:
