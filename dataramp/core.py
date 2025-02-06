@@ -9,6 +9,7 @@ import json
 import logging
 import os
 import pickle as pk
+import subprocess
 from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import datetime
@@ -16,7 +17,7 @@ from functools import lru_cache
 from importlib.metadata import PackageNotFoundError
 from importlib.metadata import version as pkg_version
 from pathlib import Path, PurePath
-from typing import Dict, Optional, Tuple, Union
+from typing import Dict, List, Optional, Tuple, Union
 
 import fasteners
 import joblib as jb
@@ -314,11 +315,22 @@ def create_directory(path: Path):
     path.mkdir(parents=True, exist_ok=True)
 
 
-def create_project(project_name: str):
+def create_project(
+    project_name: str,
+    extra_dirs: Optional[List[str]] = None,
+    init_git: bool = False,
+    packages: Optional[List[str]] = None,
+):
     """Project initialization with dependency files."""
     if not project_name or any(c in project_name for c in "/\\"):
         raise ValueError("Invalid project name")
+    if (Path.cwd() / project_name).exists():
+        raise ValueError(
+            f"Project name '{project_name}' already exists in the current directory."
+        )
+
     base_path = Path.cwd() / project_name
+    config_path = base_path / ".dataramprc"
     dirs = [
         base_path / "datasets/raw",
         base_path / "datasets/processed/versions",
@@ -327,23 +339,50 @@ def create_project(project_name: str):
         base_path / "src/scripts/tests",
         base_path / "src/notebooks",
     ]
+    if extra_dirs:
+        dirs.extend(base_path / d for d in extra_dirs)
+
     for dir in dirs:
         create_directory(dir)
 
     # Create config file
-    config_path = base_path / ".dataramprc"
     if not config_path.exists():
-        get_path("data_path")  # Triggers auto-config
+        config_content = {
+            "data_path": str(base_path / "datasets"),
+            "model_path": str(base_path / "outputs/models"),
+            "logging_level": "INFO",
+        }
+        with atomic_write(config_path) as temp_path:
+            temp_path.write_text(json.dumps(config_content, indent=4))
 
-    # Create basic documentation
+    # Create README file
+    readme_template = f"""# {project_name}
+
+    ## Description
+    A data science project structure.
+
+    ## Installation
+    Install dependencies:
+    ```
+    pip install -r requirements.txt
+    ```
+
+    ## Usage
+    Run scripts from `src/scripts`.
+    """
     readme = base_path / "README.md"
     with atomic_write(readme) as temp_path:
-        temp_path.write_text(f"# {project_name}\n\nData science project structure.")
+        temp_path.write_text(readme_template)
 
     # Create dependency files
-    _generate_requirements_file(base_path)
+    _generate_requirements_file(base_path, packages or [])
     _generate_environment_file(base_path)
-    logger.info(f"Created project structure at {base_path}")
+
+    # Initialize Git repository if requested
+    if init_git:
+        subprocess.run(["git", "init"], cwd=base_path, check=True)
+
+    logger.info(f"Created project at {base_path}")
 
 
 def _generate_requirements_file(project_path: Path):
