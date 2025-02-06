@@ -68,13 +68,21 @@ class DataVersioner:
         self.versions = self._load_history()
 
     def _load_history(self) -> Dict[str, DataVersion]:
-        """Load version history with file locking."""
+        """Load version history with error handling."""
         with fasteners.InterProcessLock(self.lock_file):
-            if self.history_file.exists():
+            if not self.history_file.exists():
+                return {}
+            try:
                 with open(self.history_file) as f:
                     history = json.load(f)
-                return {
-                    k: DataVersion(
+            except (json.JSONDecodeError, IOError) as e:
+                logger.error(f"Error loading version history: {e}")
+                return {}
+
+            versions = {}
+            for k, v in history.items():
+                try:
+                    versions[k] = DataVersion(
                         version_id=k,
                         timestamp=v["timestamp"],
                         description=v["description"],
@@ -84,9 +92,9 @@ class DataVersioner:
                         metadata=v["metadata"],
                         dataset_name=v["metadata"]["dataset_name"],
                     )
-                    for k, v in history.items()
-                }
-        return {}
+                except KeyError as e:
+                    logger.error(f"Invalid version entry {k}: {e}")
+            return versions
 
     def _save_history(self):
         """Save version history with atomic write."""
@@ -116,27 +124,35 @@ class DataVersioner:
         version_format: str = "timestamp",
         metadata: Optional[dict] = None,
         method: str = "parquet",
+        compression: Optional[str] = None,
     ) -> DataVersion:
         """Create a new dataset version with atomic writes and validation."""
         if data is None or data.empty:
             raise ValueError("Cannot version empty dataset")
+        safe_name = PurePath(name).name
         data_hash = self._calculate_hash(data)
-        version_id = self._generate_version_id(data_hash, version_format, name)
-        version_path = self.base_path / name / version_id
+        version_id = self._generate_version_id(data_hash, version_format, safe_name)
+        version_path = self.base_path / safe_name / version_id
         version_path.mkdir(parents=True, exist_ok=True)
 
-        # Save data with atomic write
+        if method not in SUPPORTED_DATA_METHODS:
+            raise ValueError(f"Unsupported data format: {method}")
+
         file_ext = SUPPORTED_DATA_METHODS[method][1]
         data_file = version_path / f"data.{file_ext}"
         with atomic_write(data_file) as temp_path:
             if method == "csv":
-                data.to_csv(temp_path, index=False)
+                data.to_csv(temp_path, index=False, compression=compression)
+            elif method == "parquet":
+                data.to_parquet(temp_path, compression=compression)
+            elif method == "feather":
+                data.to_feather(temp_path, compression=compression)
             else:
                 getattr(data, f"to_{method}")(temp_path)
 
-        # Create metadata
+        # metadata
         version_metadata = {
-            "dataset_name": name,
+            "dataset_name": safe_name,
             "author": author or os.getenv("USER", "unknown"),
             "created": datetime.now().isoformat(),
             "description": description,
@@ -146,6 +162,7 @@ class DataVersioner:
             "shape": data.shape,
             "data_hash": data_hash,
             "custom": metadata or {},
+            "compression": compression,
         }
 
         metadata_file = version_path / "metadata.json"
@@ -161,14 +178,13 @@ class DataVersioner:
             data_hash=data_hash,
             file_path=data_file,
             metadata=version_metadata,
-            dataset_name=name,
+            dataset_name=safe_name,
         )
 
-        # Update history with lock
         with fasteners.InterProcessLock(self.lock_file):
             self.versions[version_id] = version
             self._save_history()
-        logger.info(f"Created version {version_id} of dataset {name}")
+        logger.info(f"Created version {version_id} of dataset {safe_name}")
         return version
 
     def _generate_version_id(
@@ -208,7 +224,6 @@ class DataVersioner:
         """Validate data integrity with enhanced error handling."""
         version = self.get_version(version_id)
         try:
-            # Read data based on stored format
             if version.file_path.suffix == ".parquet":
                 current_data = pd.read_parquet(version.file_path)
             elif version.file_path.suffix == ".feather":
@@ -362,17 +377,14 @@ def model_save(
     compression: Optional[Union[int, str]] = None,
 ) -> Path:
     """Secure model saving with versioning and atomic writes."""
-    # Validate serialization method
     method_info = SUPPORTED_MODEL_METHODS.get(method)
     if method_info is None:
         raise ValueError(f"Unsupported model serialization method: {method}")
 
-    # Sanitize model name
     safe_name = PurePath(name).name
     models_dir = Path(models_dir or get_path("models_path"))
     models_dir.mkdir(parents=True, exist_ok=True)
 
-    # Version resolution
     lock = models_dir / "versions.lock"
     with fasteners.InterProcessLock(lock):
         version_id = _resolve_version(
@@ -386,15 +398,17 @@ def model_save(
         raise FileExistsError(f"Model exists at {model_path}. Use overwrite=True.")
 
     try:
-        # Atomic model save with compression
         with atomic_write(model_path) as temp_path:
             dump_method = method_info[0]
             if method == "joblib":
                 dump_method(model, temp_path, compress=compression)
+            elif method == "pickle":
+                if compression:
+                    raise ValueError("Pickle doesn't support compression")
+                dump_method(model, temp_path)
             else:
                 dump_method(model, temp_path)
 
-        # Metadata handling
         if metadata:
             meta_path = model_path.with_suffix(".json")
             with atomic_write(meta_path) as temp_path:
@@ -422,10 +436,14 @@ def _resolve_version(
         return datetime.now().strftime("%Y%m%dT%H%M%S")
     if version_format == "increment":
         pattern = f"{name}_v*.{SUPPORTED_MODEL_METHODS[method][1]}"
-        existing = sorted(
-            models_dir.glob(pattern), key=lambda x: int(x.stem.split("_v")[-1])
-        )
-        return f"v{len(existing) + 1}"
+        existing = []
+        for path in models_dir.glob(pattern):
+            try:
+                version_num = int(path.stem.split("_v")[-1])
+                existing.append(version_num)
+            except ValueError:
+                continue  # Skip invalid formats
+        return f"v{max(existing) + 1 if existing else 1}"
     raise ValueError(f"Invalid version format: {version_format}")
 
 
@@ -434,6 +452,7 @@ def data_save(
     name: str = "data",
     method: str = "parquet",
     versioning: bool = False,
+    compression: Optional[str] = None,
     **version_kwargs,
 ) -> Union[Path, DataVersion]:
     """Data saving with optional versioning."""
@@ -449,13 +468,17 @@ def data_save(
     )
     with atomic_write(data_path) as temp_path:
         if method == "csv":
-            data.to_csv(temp_path, index=False)
+            data.to_csv(temp_path, index=False, compression=compression)
+        elif method == "parquet":
+            data.to_parquet(temp_path, compression=compression)
         else:
             getattr(data, f"to_{method}")(temp_path)
 
     if versioning:
         versioner = DataVersioner()
-        return versioner.create_version(data, name, method=method, **version_kwargs)
+        return versioner.create_version(
+            data, name, method=method, compression=compression, **version_kwargs
+        )
     return data_path
 
 
