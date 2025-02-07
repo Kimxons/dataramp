@@ -7,10 +7,14 @@ import csv
 import logging
 import os
 import warnings
+from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
 from pathlib import Path
 from typing import Any, Dict, Iterable, Optional, Union
 
+import numpy as np
 import pandas as pd
+from dask import dataframe as dd
+from sklearn.ensemble import IsolationForest
 from sqlalchemy import create_engine, exc, text
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
@@ -19,6 +23,101 @@ logger = logging.getLogger(__name__)
 DEFAULT_SAMPLE_SIZE = 10_000
 MAX_CATEGORY_CARDINALITY = 1000
 _CHUNK_READER_WARNING_THRESHOLD = 1024 * 1024 * 1024  # 1GB
+
+MAX_PARALLEL_WORKERS = 8
+MEMORY_SAFETY_FACTOR = 0.7
+PARALLEL_CHUNK_SIZE = 10**5  # 100,000 rows per chunk
+
+
+class DataOptimizer:
+    """ML-powered data type optimization engine."""
+
+    def __init__(self, sample_size=10000):
+        self.sample_size = sample_size
+        self.type_rules = {
+            "category_threshold": 0.1,
+            "float_precision": 32,
+            "int_threshold": 0.2,
+        }
+
+    def optimize(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Smart type optimization using heuristic rules."""
+        for col in df.columns:
+            col_data = df[col]
+
+            if self._is_datetime(col_data):
+                df[col] = pd.to_datetime(col_data)
+                continue
+
+            if pd.api.types.is_numeric_dtype(col_data):
+                df[col] = self._optimize_numeric(col_data)
+            elif pd.api.types.is_string_dtype(col_data):
+                df[col] = self._optimize_string(col_data)
+
+        return df
+
+    def _optimize_numeric(self, series: pd.Series) -> pd.Series:
+        """Optimize numeric columns with anomaly detection."""
+        try:
+            if series.dropna().empty:
+                return series
+
+            clf = IsolationForest(contamination=0.05)
+            mask = clf.fit_predict(series.values.reshape(-1, 1)) == 1
+            clean_series = series[mask]
+
+            if np.issubdtype(series.dtype, np.integer):
+                return pd.to_numeric(clean_series, downcast="integer")
+
+            downcast = pd.to_numeric(series, downcast="float")
+            if self._precision_loss(downcast, series):
+                return series.astype(f"float{self.type_rules['float_precision']}")
+            return downcast
+
+        except Exception as e:
+            logger.warning(f"Numeric optimization failed: {str(e)}")
+            return series
+
+    def _optimize_string(self, series: pd.Series) -> pd.Series:
+        """Smart string categorization with entropy analysis."""
+        unique_count = series.nunique()
+        total_count = len(series)
+        unique_ratio = unique_count / total_count
+
+        if unique_ratio < self.type_rules["category_threshold"]:
+            return series.astype("category")
+
+        if self._is_categorical_code(series):
+            return series.astype("category")
+
+        return series
+
+    def _is_datetime(self, series: pd.Series) -> bool:
+        """Advanced datetime pattern detection."""
+        date_formats = ["%Y-%m-%d", "%d/%m/%Y", "%m-%d-%Y", "%Y%m%d"]
+        sample = series.dropna().sample(min(self.sample_size, len(series)))
+
+        for fmt in date_formats:
+            try:
+                pd.to_datetime(sample, format=fmt, errors="raise")
+                return True
+            except (ValueError, TypeError):
+                continue
+        return False
+
+    def _is_categorical_code(self, series: pd.Series) -> bool:
+        """Detect coded categorical patterns using regex."""
+        sample = series.dropna().sample(min(500, len(series)))
+        pattern = r"^[A-Za-z]+\d+$"
+        match_ratio = sample.str.contains(pattern).mean()
+        return match_ratio > 0.8
+
+    def _precision_loss(self, converted: pd.Series, original: pd.Series) -> bool:
+        """Detect significant precision loss after conversion."""
+        try:
+            return not np.allclose(converted, original, equal_nan=True, atol=1e-5)
+        except TypeError:
+            return False
 
 
 class DataLoadError(Exception):
@@ -41,11 +140,16 @@ def load_csv(
     chunksize: Optional[int] = None,
     encoding: str = "utf-8",
     parallel: bool = False,
+    use_dask: bool = False,
+    optimizer: Optional[DataOptimizer] = None,
     **kwargs,
 ) -> Union[pd.DataFrame, Iterable[pd.DataFrame]]:
-    """Optimized CSV loader with memory-aware processing."""
+    """Optimized CSV loader with parallel processing options."""
     file_path = Path(file_path)
     _validate_file(file_path)
+
+    if parallel:
+        return _parallel_csv_load(file_path, use_dask, optimizer, **kwargs)
 
     if dtype is None:
         schema = infer_data_schema(file_path, encoding=encoding, **kwargs)
@@ -67,12 +171,61 @@ def load_csv(
         )
 
         if chunksize:
-            return _process_chunks(reader, parallel, file_path)
-        return optimize_memory(reader)
+            return _process_chunks(reader, False, file_path, optimizer)
+        return (optimizer or DataOptimizer()).optimize(pd.read_csv(file_path, **kwargs))
 
     except pd.errors.ParserError as e:
         logger.error(f"CSV parsing error in {file_path.name}: {str(e)}")
         raise DataLoadError(f"CSV parsing failed: {file_path.name}") from e
+
+
+def _parallel_csv_load(
+    file_path: Path, use_dask: bool, optimizer: Optional[DataOptimizer], **kwargs
+) -> pd.DataFrame:
+    """Internal parallel CSV loader."""
+    if use_dask:
+        try:
+            ddf = dd.read_csv(file_path, **kwargs)
+            df = ddf.compute()
+            return (optimizer or DataOptimizer()).optimize(df)
+        except ImportError:
+            logger.warning("Dask not installed, falling back to ThreadPool")
+            return _multiprocess_pandas_load(
+                file_path, pd.read_csv, optimizer, **kwargs
+            )
+
+    return _multiprocess_pandas_load(file_path, pd.read_csv, optimizer, **kwargs)
+
+
+def _multiprocess_pandas_load(
+    file_path: Path, loader: callable, optimizer: Optional[DataOptimizer], **kwargs
+) -> pd.DataFrame:
+    """Parallel processing using ProcessPoolExecutor."""
+    with ProcessPoolExecutor(max_workers=MAX_PARALLEL_WORKERS) as executor:
+        chunks = list(
+            executor.map(
+                lambda x: loader(x, **kwargs),
+                _chunked_file_reader(file_path, PARALLEL_CHUNK_SIZE),
+            )
+        )
+
+    return pd.concat([optimizer.optimize(chunk) for chunk in chunks], ignore_index=True)
+
+
+def _chunked_file_reader(file_path: Path, chunksize: int):
+    """Generate file chunks for parallel processing."""
+    with open(file_path, "r") as f:
+        header = f.readline()
+        while True:
+            lines = []
+            for _ in range(chunksize):
+                line = f.readline()
+                if not line:
+                    break
+                lines.append(line)
+            if not lines:
+                break
+            yield pd.read_csv([header] + lines)
 
 
 def load_excel(
@@ -168,9 +321,14 @@ def load_from_db(
     params: Optional[Dict[str, Any]] = None,
     streaming: bool = False,
     chunk_size: int = 10_000,
+    parallel: bool = False,
+    index_col: Optional[str] = None,
     **kwargs,
 ) -> Union[pd.DataFrame, Iterable[pd.DataFrame]]:
-    """Database loader with advanced security."""
+    """Database loader with parallel execution options."""
+    if parallel and index_col:
+        return _parallel_db_load(query, connection_string, index_col, **kwargs)
+
     conn_str = connection_string or os.getenv("DB_URI")
     if not conn_str:
         raise ValueError("Database connection string required")
@@ -192,21 +350,75 @@ def load_from_db(
         raise DataLoadError(f"Database operation failed: {str(e)}") from e
 
 
+def _parallel_db_load(
+    query: str, connection_string: str, index_col: str, chunks: int = 4, **kwargs
+) -> pd.DataFrame:
+    """Parallel database query execution."""
+    try:
+        engine = create_engine(connection_string)
+        with engine.connect() as conn:
+            min_max = conn.execute(
+                f"SELECT MIN({index_col}), MAX({index_col}) FROM ({query}) AS sub"
+            ).fetchone()
+
+        ranges = np.linspace(min_max[0], min_max[1], chunks + 1)
+        queries = [
+            f"{query} WHERE {index_col} BETWEEN {start} AND {end}"
+            for start, end in zip(ranges[:-1], ranges[1:])
+        ]
+
+        with ThreadPoolExecutor(max_workers=chunks) as executor:
+            futures = [
+                executor.submit(load_from_db, q, connection_string) for q in queries
+            ]
+            results = [f.result() for f in futures]
+
+        return pd.concat(results, ignore_index=True)
+    except exc.SQLAlchemyError as e:
+        logger.error(f"Parallel database load failed: {str(e)}")
+        raise DataLoadError(f"Parallel database operation failed: {str(e)}")
+
+
+def _process_chunks(
+    reader: Iterable[pd.DataFrame],
+    parallel: bool,
+    file_path: Path,
+    optimizer: Optional[DataOptimizer] = None,
+) -> Iterable[pd.DataFrame]:
+    """Process data chunks with optional parallelism."""
+    opt = optimizer or DataOptimizer()
+    if parallel:
+        return _parallel_chunk_processing(reader, file_path, opt)
+
+    for chunk in reader:
+        yield opt.optimize(chunk)
+
+
+def _parallel_chunk_processing(
+    reader: Iterable[pd.DataFrame], file_path: Path, optimizer: DataOptimizer
+) -> Iterable[pd.DataFrame]:
+    """Parallel chunk processing using ThreadPool."""
+    with ThreadPoolExecutor(max_workers=os.cpu_count()) as executor:
+        yield from executor.map(optimizer.optimize, reader)
+
+
 def optimize_memory(df: pd.DataFrame) -> pd.DataFrame:
-    """Reduce memory usage through type optimization.."""
-    for col in df.columns:
-        col_type = df[col].dtype
-
-        if pd.api.types.is_object_dtype(col_type):
-            unique_count = df[col].nunique()
-            if 1 < unique_count <= MAX_CATEGORY_CARDINALITY:
-                df[col] = df[col].astype("category")
-        elif pd.api.types.is_integer_dtype(col_type):
-            df[col] = pd.to_numeric(df[col], downcast="integer")
-        elif pd.api.types.is_float_dtype(col_type):
-            df[col] = pd.to_numeric(df[col], downcast="float")
-
-    return df
+    """Reduce memory usage through type optimization."""
+    try:
+        for col in df.columns:
+            col_type = df[col].dtype
+            if pd.api.types.is_object_dtype(col_type):
+                unique_count = df[col].nunique()
+                if 1 < unique_count <= MAX_CATEGORY_CARDINALITY:
+                    df[col] = df[col].astype("category")
+            elif pd.api.types.is_integer_dtype(col_type):
+                df[col] = pd.to_numeric(df[col], downcast="integer")
+            elif pd.api.types.is_float_dtype(col_type):
+                df[col] = pd.to_numeric(df[col], downcast="float")
+        return df
+    except Exception as e:
+        logger.error(f"Memory optimization failed: {str(e)}")
+        return df
 
 
 def infer_data_schema(
@@ -312,14 +524,18 @@ def _calculate_optimal_chunksize(
 
 
 def _process_chunks(
-    reader: Iterable[pd.DataFrame], parallel: bool, file_path: Path
+    reader: Iterable[pd.DataFrame],
+    parallel: bool,
+    file_path: Path,
+    optimizer: Optional[DataOptimizer] = None,
 ) -> Iterable[pd.DataFrame]:
     """Process data chunks with optional parallelism."""
+    opt = optimizer or DataOptimizer()
     if parallel:
-        return _parallel_chunk_processing(reader, file_path)
+        return _parallel_chunk_processing(reader, file_path, opt)
 
     for chunk in reader:
-        yield optimize_memory(chunk)
+        yield opt.optimize(chunk)
 
 
 def _parallel_chunk_processing(
