@@ -1,292 +1,385 @@
-"""Module providing secure and user-friendly functions to load data into pandas DataFrames.
+"""Enterprise-grade data loading module with CPU optimization and security safeguards.
 
-This module includes functions for loading data from various file formats and databases
-with robust error handling, security checks, and performance optimizations.
+Supporting formats: CSV, Excel, JSON, Parquet, Feather, ORC, SQL databases.
 """
 
+import csv
 import logging
 import os
-import sqlite3
 import warnings
 from pathlib import Path
-from typing import Any, Dict, Optional, Union
+from typing import Any, Dict, Iterable, Optional, Union
 
 import pandas as pd
-from sqlalchemy import create_engine, text
+from sqlalchemy import create_engine, exc, text
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 logger = logging.getLogger(__name__)
 
+DEFAULT_SAMPLE_SIZE = 10_000
+MAX_CATEGORY_CARDINALITY = 1000
+_CHUNK_READER_WARNING_THRESHOLD = 1024 * 1024 * 1024  # 1GB
 
-def load_csv(file_path: Union[str, Path], **kwargs) -> pd.DataFrame:
-    """Load data from a CSV file into a Pandas DataFrame with security checks.
 
-    Parameters
-    ----------
-    file_path : Union[str, Path]
-        The path to the CSV file.
-    **kwargs : dict
-        Additional arguments to pass to pd.read_csv
+class DataLoadError(Exception):
+    """Base exception for data loading errors."""
 
-    Returns:
-    -------
-    pd.DataFrame
-        The loaded data as a Pandas DataFrame.
 
-    Raises:
-    ------
-    FileNotFoundError
-        If the file does not exist.
-    ValueError
-        If the file is not a valid CSV file.
+class SecurityValidationError(DataLoadError):
+    """Security validation failure."""
 
-    Example:
-    --------
-    >>> df = load_csv("data.csv")
-    >>> df = load_csv("large.csv", chunksize=1000)  # Returns iterator
-    """
+
+class EmptyDataError(DataLoadError):
+    """Empty file or query result."""
+
+
+def load_csv(
+    file_path: Union[str, Path],
+    low_memory: bool = False,
+    dtype: Optional[Dict] = None,
+    parse_dates: Optional[list] = None,
+    chunksize: Optional[int] = None,
+    encoding: str = "utf-8",
+    parallel: bool = False,
+    **kwargs,
+) -> Union[pd.DataFrame, Iterable[pd.DataFrame]]:
+    """Optimized CSV loader with memory-aware processing."""
     file_path = Path(file_path)
-    if not file_path.exists():
-        raise FileNotFoundError(f"CSV file not found: {file_path}")
-    if file_path.stat().st_size == 0:
-        raise ValueError(f"CSV file is empty: {file_path}")
+    _validate_file(file_path)
+
+    if dtype is None:
+        schema = infer_data_schema(file_path, encoding=encoding, **kwargs)
+        dtype = schema["dtypes"]
+        parse_dates = parse_dates or schema.get("parse_dates")
+
+    chunksize = _calculate_optimal_chunksize(file_path, chunksize)
 
     try:
-        return pd.read_csv(file_path, **kwargs)
-    except pd.errors.EmptyDataError as e:
-        logger.error(f"CSV file is empty: {file_path}")
-        raise ValueError(f"Empty CSV file: {file_path}") from e
+        reader = pd.read_csv(
+            file_path,
+            dtype=dtype,
+            parse_dates=parse_dates,
+            low_memory=low_memory,
+            chunksize=chunksize,
+            on_bad_lines="warn",
+            encoding=encoding,
+            **kwargs,
+        )
+
+        if chunksize:
+            return _process_chunks(reader, parallel, file_path)
+        return optimize_memory(reader)
+
     except pd.errors.ParserError as e:
-        logger.error(f"CSV parsing error in {file_path}: {e}")
-        raise ValueError(f"CSV parsing error: {file_path}") from e
-    except Exception as e:
-        logger.error(f"Unexpected error loading CSV: {e}")
-        raise
+        logger.error(f"CSV parsing error in {file_path.name}: {str(e)}")
+        raise DataLoadError(f"CSV parsing failed: {file_path.name}") from e
 
 
-def load_excel(file_path: Union[str, Path], **kwargs) -> pd.DataFrame:
-    """Load data from an Excel file with security warnings for macros.
-
-    Parameters
-    ----------
-    file_path : Union[str, Path]
-        The path to the Excel file.
-    **kwargs : dict
-        Additional arguments to pass to pd.read_excel
-
-    Returns:
-    -------
-    pd.DataFrame
-        The loaded data as a Pandas DataFrame.
-
-    Warns:
-    ------
-    UserWarning
-        If loading an Excel file with potential macros
-    """
+def load_excel(
+    file_path: Union[str, Path],
+    sheet_name: Optional[Union[str, int]] = 0,
+    dtype: Optional[Dict] = None,
+    **kwargs,
+) -> pd.DataFrame:
+    """Secure Excel loader with macro validation."""
     file_path = Path(file_path)
-    if not file_path.exists():
-        raise FileNotFoundError(f"Excel file not found: {file_path}")
-
-    # Security warning for Excel files
-    warnings.warn(
-        "Excel files may contain malicious macros. Only open files from trusted sources.",
-        UserWarning,
-    )
+    _validate_file(file_path)
+    _validate_excel_file(file_path)
 
     try:
-        return pd.read_excel(file_path, **kwargs)
+        df = pd.read_excel(file_path, sheet_name=sheet_name, dtype=dtype, **kwargs)
+        return optimize_memory(df)
     except Exception as e:
-        logger.error(f"Error loading Excel file {file_path}: {e}")
-        raise ValueError(f"Invalid Excel file: {file_path}") from e
+        logger.error(f"Excel loading error: {str(e)}")
+        raise DataLoadError(f"Failed to load Excel file: {file_path}") from e
+
+
+def load_json(
+    file_path: Union[str, Path],
+    dtype: Optional[Dict] = None,
+    precise_float: bool = False,
+    **kwargs,
+) -> pd.DataFrame:
+    """JSON loader with schema validation."""
+    file_path = Path(file_path)
+    _validate_file(file_path)
+
+    try:
+        df = pd.read_json(file_path, dtype=dtype, precise_float=precise_float, **kwargs)
+        return optimize_memory(df)
+    except ValueError as e:
+        logger.error(f"JSON syntax error: {str(e)}")
+        raise DataLoadError("Invalid JSON structure") from e
+
+
+def load_parquet(
+    file_path: Union[str, Path],
+    columns: Optional[list] = None,
+    memory_map: bool = True,
+    **kwargs,
+) -> pd.DataFrame:
+    """High-performance Parquet loader."""
+    file_path = Path(file_path)
+    _validate_file(file_path)
+
+    try:
+        df = pd.read_parquet(
+            file_path, columns=columns, memory_map=memory_map, **kwargs
+        )
+        return optimize_memory(df)
+    except Exception as e:
+        logger.error(f"Parquet error: {str(e)}")
+        raise DataLoadError("Parquet loading failed") from e
+
+
+def load_feather(
+    file_path: Union[str, Path], columns: Optional[list] = None, **kwargs
+) -> pd.DataFrame:
+    """Feather format loader."""
+    file_path = Path(file_path)
+    _validate_file(file_path)
+
+    try:
+        df = pd.read_feather(file_path, columns=columns, **kwargs)
+        return optimize_memory(df)
+    except Exception as e:
+        logger.error(f"Feather error: {str(e)}")
+        raise DataLoadError("Feather loading failed") from e
+
+
+def load_orc(
+    file_path: Union[str, Path], columns: Optional[list] = None, **kwargs
+) -> pd.DataFrame:
+    """ORC format loader."""
+    file_path = Path(file_path)
+    _validate_file(file_path)
+
+    try:
+        df = pd.read_orc(file_path, columns=columns, **kwargs)
+        return optimize_memory(df)
+    except Exception as e:
+        logger.error(f"ORC error: {str(e)}")
+        raise DataLoadError("ORC loading failed") from e
 
 
 def load_from_db(
     query: str,
     connection_string: Optional[str] = None,
-    engine: str = "sqlalchemy",
     params: Optional[Dict[str, Any]] = None,
+    streaming: bool = False,
+    chunk_size: int = 10_000,
     **kwargs,
-) -> pd.DataFrame:
-    """Securely load data from a SQL database with parameterized queries.
-
-    Parameters
-    ----------
-    query : str
-        SQL query (preferably parameterized using :param_name syntax)
-    connection_string : Optional[str]
-        Database connection string (default: use DB_URI environment variable)
-    engine : str
-        Database engine type ("sqlalchemy" or "sqlite3")
-    params : Optional[Dict[str, Any]]
-        Parameters for SQL query to prevent injection
-    **kwargs : dict
-        Additional arguments to pass to pd.read_sql
-
-    Returns:
-    -------
-    pd.DataFrame
-        The loaded data as a Pandas DataFrame.
-
-    Example:
-    --------
-    >>> load_from_db(
-    ...     "SELECT * FROM users WHERE age > :min_age",
-    ...     params={"min_age": 18},
-    ...     engine="sqlalchemy"
-    ... )
-    """
-    # Get connection string from environment if not provided
-    connection_string = connection_string or os.getenv("DB_URI")
-    if not connection_string:
+) -> Union[pd.DataFrame, Iterable[pd.DataFrame]]:
+    """Database loader with advanced security."""
+    conn_str = connection_string or os.getenv("DB_URI")
+    if not conn_str:
         raise ValueError("Database connection string required")
 
+    _validate_query(query)
+
+    engine = _get_db_engine(conn_str)
+
     try:
-        if engine == "sqlalchemy":
-            engine = create_engine(connection_string)
-            with engine.connect() as conn:
-                return pd.read_sql(
-                    text(query).bindparams(**params) if params else text(query),
-                    conn,
-                    **kwargs,
+        if streaming:
+            return _stream_db_results(engine, query, params, chunk_size)
+
+        with engine.connect() as conn:
+            df = pd.read_sql(text(query).bindparams(**(params or {})), conn, **kwargs)
+            return optimize_memory(df)
+
+    except exc.SQLAlchemyError as e:
+        logger.error(f"Database error: {str(e)}")
+        raise DataLoadError(f"Database operation failed: {str(e)}") from e
+
+
+def optimize_memory(df: pd.DataFrame) -> pd.DataFrame:
+    """Reduce memory usage through type optimization.."""
+    for col in df.columns:
+        col_type = df[col].dtype
+
+        if pd.api.types.is_object_dtype(col_type):
+            unique_count = df[col].nunique()
+            if 1 < unique_count <= MAX_CATEGORY_CARDINALITY:
+                df[col] = df[col].astype("category")
+        elif pd.api.types.is_integer_dtype(col_type):
+            df[col] = pd.to_numeric(df[col], downcast="integer")
+        elif pd.api.types.is_float_dtype(col_type):
+            df[col] = pd.to_numeric(df[col], downcast="float")
+
+    return df
+
+
+def infer_data_schema(
+    file_path: Path, sample_size: int = DEFAULT_SAMPLE_SIZE, **reader_args
+) -> Dict[str, Any]:
+    """Generate optimized data schema with statistical sampling."""
+    sample = pd.read_csv(file_path, nrows=sample_size, **reader_args)
+    optimized = optimize_memory(sample)
+    return {
+        "dtypes": optimized.dtypes.to_dict(),
+        "parse_dates": [
+            col
+            for col, dtype in optimized.dtypes.items()
+            if pd.api.types.is_datetime64_any_dtype(dtype)
+        ],
+    }
+
+
+def _validate_file(file_path: Path):
+    """Comprehensive file validation."""
+    if not file_path.exists():
+        raise FileNotFoundError(f"File not found: {file_path}")
+    if file_path.stat().st_size == 0:
+        raise EmptyDataError(f"Empty file: {file_path}")
+
+    if file_path.suffix.lower() == ".csv":
+        _validate_csv_structure(file_path)
+
+
+def _validate_csv_structure(file_path: Path, sample_size: int = 1024):
+    """Validate CSV structure and encoding."""
+    try:
+        with open(file_path, "rb") as f:
+            sample = f.read(sample_size)
+            if b"\0" in sample:
+                raise SecurityValidationError(
+                    "File contains null bytes (possible binary file)"
                 )
-        else:
-            with sqlite3.connect(connection_string) as conn:
-                return pd.read_sql(query, conn, params=params, **kwargs)
-    except Exception as e:
-        logger.error(f"Database error: {e}")
-        raise ValueError("Database operation failed") from e
+
+            try:
+                csv.Sniffer().sniff(sample.decode("utf-8", errors="replace"))
+            except csv.Error as e:
+                raise SecurityValidationError(f"CSV format error: {str(e)}")
+
+    except UnicodeDecodeError as e:
+        raise SecurityValidationError(f"Encoding error: {str(e)}") from e
 
 
-def load_json(file_path: Union[str, Path], **kwargs) -> pd.DataFrame:
-    """Load data from a JSON file with schema validation.
+def _validate_excel_file(file_path: Path):
+    """Excel file security checks."""
+    warnings.warn(
+        "Excel files may contain malicious macros. Only open trusted files.",
+        UserWarning,
+    )
 
-    Parameters
-    ----------
-    file_path : Union[str, Path]
-        The path to the JSON file.
-    **kwargs : dict
-        Additional arguments to pass to pd.read_json
-
-    Returns:
-    -------
-    pd.DataFrame
-        The loaded data as a Pandas DataFrame.
-    """
-    file_path = Path(file_path)
-    if not file_path.exists():
-        raise FileNotFoundError(f"JSON file not found: {file_path}")
-
-    try:
-        return pd.read_json(file_path, **kwargs)
-    except ValueError as e:
-        logger.error(f"JSON syntax error in {file_path}: {e}")
-        raise
-    except Exception as e:
-        logger.error(f"Unexpected error loading JSON: {e}")
-        raise
+    if file_path.suffix.lower() in (".xlsb", ".xlsm"):
+        raise SecurityValidationError("Potentially unsafe Excel file format")
 
 
-def load_parquet(file_path: Union[str, Path], **kwargs) -> pd.DataFrame:
-    """Load data from a Parquet file with schema validation.
+def _validate_query(query: str):
+    """SQL injection prevention."""
+    forbidden_patterns = [
+        (";", "Query termination"),
+        ("--", "SQL comment"),
+        ("/*", "Block comment start"),
+        ("*/", "Block comment end"),
+        ("xp_", "Extended procedure"),
+        ("DROP ", "DROP statement"),
+        ("DELETE ", "DELETE statement"),
+        ("INSERT ", "INSERT statement"),
+        ("UPDATE ", "UPDATE statement"),
+        ("TRUNCATE ", "TRUNCATE statement"),
+    ]
 
-    Parameters
-    ----------
-    file_path : Union[str, Path]
-        The path to the Parquet file.
-    **kwargs : dict
-        Additional arguments to pass to pd.read_parquet
-    """
-    file_path = Path(file_path)
-    if not file_path.exists():
-        raise FileNotFoundError(f"Parquet file not found: {file_path}")
-
-    try:
-        return pd.read_parquet(file_path, **kwargs)
-    except Exception as e:
-        logger.error(f"Parquet loading error: {e}")
-        raise ValueError(f"Invalid Parquet file: {file_path}") from e
+    for pattern, description in forbidden_patterns:
+        if pattern.upper() in query.upper():
+            raise SecurityValidationError(
+                f"Potentially dangerous SQL pattern: {description}"
+            )
 
 
-def load_feather(file_path: Union[str, Path], **kwargs) -> pd.DataFrame:
-    """Load data from a Feather file.
-
-    Parameters
-    ----------
-    file_path : Union[str, Path]
-        The path to the Feather file.
-    **kwargs : dict
-        Additional arguments to pass to pd.read_feather
-    """
-    file_path = Path(file_path)
-    if not file_path.exists():
-        raise FileNotFoundError(f"Feather file not found: {file_path}")
+def _calculate_optimal_chunksize(
+    file_path: Path, user_chunksize: Optional[int]
+) -> Optional[int]:
+    """Calculate memory-safe chunk size."""
+    if user_chunksize:
+        return user_chunksize
 
     try:
-        return pd.read_feather(file_path, **kwargs)
-    except Exception as e:
-        logger.error(f"Feather loading error: {e}")
-        raise ValueError(f"Invalid Feather file: {file_path}") from e
+        import psutil
+
+        file_size = file_path.stat().st_size
+        mem_available = psutil.virtual_memory().available
+
+        if file_size > _CHUNK_READER_WARNING_THRESHOLD:
+            logger.warning(f"Loading large file: {file_size/1e9:.1f}GB")
+
+        return max(1, int((mem_available * 0.7) // (file_size / 1000)))
+
+    except ImportError:
+        logger.warning("psutil not installed, using default chunking")
+        return None
 
 
-def load_orc(file_path: Union[str, Path], **kwargs) -> pd.DataFrame:
-    """Load data from an ORC file.
+def _process_chunks(
+    reader: Iterable[pd.DataFrame], parallel: bool, file_path: Path
+) -> Iterable[pd.DataFrame]:
+    """Process data chunks with optional parallelism."""
+    if parallel:
+        return _parallel_chunk_processing(reader, file_path)
 
-    Parameters
-    ----------
-    file_path : Union[str, Path]
-        The path to the ORC file.
-    **kwargs : dict
-        Additional arguments to pass to pd.read_orc
-    """
-    file_path = Path(file_path)
-    if not file_path.exists():
-        raise FileNotFoundError(f"ORC file not found: {file_path}")
-
-    try:
-        return pd.read_orc(file_path, **kwargs)
-    except Exception as e:
-        logger.error(f"ORC loading error: {e}")
-        raise ValueError(f"Invalid ORC file: {file_path}") from e
+    for chunk in reader:
+        yield optimize_memory(chunk)
 
 
-def data_load(source: Union[str, Path], method: str = "csv", **kwargs) -> pd.DataFrame:
-    """Unified data loading interface with automatic format detection.
+def _parallel_chunk_processing(
+    reader: Iterable[pd.DataFrame], file_path: Path
+) -> Iterable[pd.DataFrame]:
+    """Parallel chunk processing using ThreadPool."""
+    from concurrent.futures import ThreadPoolExecutor
 
-    Parameters
-    ----------
-    source : Union[str, Path]
-        File path or database connection string
-    method : str
-        Load method (csv|parquet|feather|excel|json|database)
-    **kwargs : dict
-        Method-specific arguments
+    def process(chunk):
+        return optimize_memory(chunk)
 
-    Returns:
-    -------
-    pd.DataFrame
-        Loaded data
+    with ThreadPoolExecutor(max_workers=os.cpu_count()) as executor:
+        yield from executor.map(process, reader)
 
-    Example:
-    --------
-    >>> # Load CSV
-    >>> df = data_load("data.csv")
 
-    >>> # Load from database
-    >>> df = data_load(
-    ...     "SELECT * FROM table",
-    ...     method="database",
-    ...     connection_string="sqlite:///mydb.sqlite"
-    ... )
+_CONNECTION_POOL = {}
+
+
+def _get_db_engine(connection_string: str):
+    """Database connection pool manager."""
+    if connection_string not in _CONNECTION_POOL:
+        _CONNECTION_POOL[connection_string] = create_engine(
+            connection_string,
+            pool_size=10,
+            max_overflow=20,
+            pool_recycle=3600,
+            connect_args={"application_name": "DataLoader"},
+        )
+    return _CONNECTION_POOL[connection_string]
+
+
+def _stream_db_results(engine, query, params, chunk_size):
+    """Stream database results server-side."""
+    with engine.connect() as conn:
+        result = conn.execution_options(stream_results=True).execute(
+            text(query), params
+        )
+        while True:
+            chunk = result.fetchmany(chunk_size)
+            if not chunk:
+                break
+            yield pd.DataFrame(chunk, columns=result.keys())
+
+
+def data_load(
+    source: Union[str, Path], method: str = "csv", **kwargs
+) -> Union[pd.DataFrame, Iterable[pd.DataFrame]]:
+    """Unified data loading interface.
+
+    Supported methods:
+    - csv, excel, json, parquet, feather, orc, database
     """
     loaders = {
         "csv": load_csv,
-        "parquet": load_parquet,
-        "feather": load_feather,
         "excel": load_excel,
         "json": load_json,
-        "database": load_from_db,
+        "parquet": load_parquet,
+        "feather": load_feather,
         "orc": load_orc,
+        "database": load_from_db,
     }
 
     if method not in loaders:
@@ -295,24 +388,3 @@ def data_load(source: Union[str, Path], method: str = "csv", **kwargs) -> pd.Dat
         )
 
     return loaders[method](source, **kwargs)
-
-
-"""Example usage
-# Simple CSV load
-df = data_load("data.csv")
-
-# Secure database load with parameters
-df = data_load(
-    "SELECT * FROM users WHERE age > :min_age",
-    method="database",
-    params={"min_age": 18},
-    connection_string="postgresql://user:pass@localhost/db"
-)
-
-# Large file processing
-for chunk in data_load("big.csv", chunksize=10000):
-    process(chunk)
-
-# Environment variable usage
-# Set DB_URI=postgresql://user:pass@localhost/db in environment
-df = data_load("SELECT * FROM table", method="database")"""
