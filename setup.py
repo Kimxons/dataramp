@@ -1,9 +1,5 @@
 #!/usr/bin/env python
-"""Setup script for the dataramp package.
-
-This module handles the setup and installation configuration for the dataramp package,
-a data science library designed for data science and data analysis teams.
-"""
+"""Setup script for the dataramp package."""
 
 from __future__ import print_function
 
@@ -19,6 +15,22 @@ REQUIRED_PYTHON = (3, 7)
 
 if CURRENT_PYTHON < REQUIRED_PYTHON:
     sys.exit(f"Sorry, Python {REQUIRED_PYTHON[0]}.{REQUIRED_PYTHON[1]}+ is required.")
+
+
+def get_version():
+    """Get the package version from __init__.py file.
+
+    Returns:
+        str: The package version string.
+    """
+    with open("dataramp/__init__.py", encoding="utf-8") as f:
+        for line in f:
+            if line.startswith("__version__"):
+                return line.strip().split("=")[1].strip().strip('"')
+
+
+if not get_version():
+    raise RuntimeError("Unable to find version string.")
 
 
 def read_file(path):
@@ -46,4 +58,18 @@ setup(
     url="https://github.com/Kimxons/dataramp",
     keywords=["data science", "machine learning", "data analysis"],
     python_requires=">=3.7",
+    classifiers=[
+        "Development Status :: 4 - Beta",
+        "Intended Audience :: Science/Research",
+        "Intended Audience :: Developers",
+        "Topic :: Software Development",
+        "Programming Language :: Python :: 3.7",
+        "Programming Language :: Python :: 3.8",
+        "Programming Language :: Python :: 3.9",
+        "Programming Language :: Python :: 3.10",
+        "Programming Language :: Python :: 3.11",
+    ],
+    packages=["dataramp"],
+    include_package_data=True,
+    zip_safe=False,
 )
