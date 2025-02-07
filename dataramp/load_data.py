@@ -6,6 +6,7 @@ Supporting formats: CSV, Excel, JSON, Parquet, Feather, ORC, SQL databases.
 import csv
 import logging
 import os
+import pickle
 import warnings
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
 from pathlib import Path
@@ -14,8 +15,9 @@ from typing import Any, Dict, Iterable, Optional, Union
 import numpy as np
 import pandas as pd
 from dask import dataframe as dd
-from sklearn.ensemble import IsolationForest
 from sqlalchemy import create_engine, exc, text
+
+from .exceptions import DataLoadError, EmptyDataError, SecurityValidationError
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 logger = logging.getLogger(__name__)
@@ -30,71 +32,164 @@ PARALLEL_CHUNK_SIZE = 10**5  # 100,000 rows per chunk
 
 
 class DataOptimizer:
-    """ML-powered data type optimization engine."""
+    """ML-powered data type optimization with automatic fallback to basic methods."""
 
     def __init__(self, sample_size=10000):
+        """Initialize the data optimizer.
+
+        Args:
+            sample_size (int): Number of samples to use for statistical analysis
+        """
         self.sample_size = sample_size
         self.type_rules = {
-            "category_threshold": 0.1,
-            "float_precision": 32,
-            "int_threshold": 0.2,
+            "category_threshold": 0.1,  # Max unique ratio for category conversion
+            "float_precision": 32,  # Bit precision for float columns
+            "int_threshold": 0.2,  # Null ratio threshold for integer conversion
         }
+        self._sklearn_available = self._check_sklearn()
+
+    def _check_sklearn(self) -> bool:
+        """Safely check if scikit-learn is available in the environment."""
+        try:
+            from sklearn.ensemble import IsolationForest  # noqa: F401
+
+            return True
+        except ImportError:
+            logger.warning("scikit-learn not installed, using basic optimization")
+            return False
 
     def optimize(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Smart type optimization using heuristic rules."""
+        """Optimize dataframe memory usage through type inference and conversion.
+
+        Args:
+            df (pd.DataFrame): Input dataframe to optimize
+
+        Returns:
+            pd.DataFrame: Optimized dataframe with reduced memory usage
+        """
         for col in df.columns:
             col_data = df[col]
 
+            # Handle datetime detection first
             if self._is_datetime(col_data):
                 df[col] = pd.to_datetime(col_data)
                 continue
 
+            # Numeric column optimization
             if pd.api.types.is_numeric_dtype(col_data):
                 df[col] = self._optimize_numeric(col_data)
+
+            # String column optimization
             elif pd.api.types.is_string_dtype(col_data):
                 df[col] = self._optimize_string(col_data)
 
         return df
 
     def _optimize_numeric(self, series: pd.Series) -> pd.Series:
-        """Optimize numeric columns with anomaly detection."""
+        """Hybrid numeric optimization strategy.
+
+        Uses ML-based optimization if available, otherwise falls back to basic downcasting.
+        """
+        if self._sklearn_available:
+            return self._ml_optimize_numeric(series)
+        return self._basic_optimize_numeric(series)
+
+    def _ml_optimize_numeric(self, series: pd.Series) -> pd.Series:
+        """ML-enhanced numeric optimization using IsolationForest for outlier detection.
+
+        Args:
+            series (pd.Series): Numeric series to optimize
+
+        Returns:
+            pd.Series: Optimized numeric series
+        """
         try:
             if series.dropna().empty:
                 return series
 
-            clf = IsolationForest(contamination=0.05)
+            # Detect outliers using IsolationForest
+            from sklearn.ensemble import IsolationForest
+
+            clf = IsolationForest(contamination=0.05, random_state=42)
             mask = clf.fit_predict(series.values.reshape(-1, 1)) == 1
             clean_series = series[mask]
 
+            # Integer optimization
             if np.issubdtype(series.dtype, np.integer):
                 return pd.to_numeric(clean_series, downcast="integer")
 
+            # Float optimization with precision checks
             downcast = pd.to_numeric(series, downcast="float")
             if self._precision_loss(downcast, series):
                 return series.astype(f"float{self.type_rules['float_precision']}")
             return downcast
 
         except Exception as e:
-            logger.warning(f"Numeric optimization failed: {str(e)}")
+            logger.warning(f"ML numeric optimization failed: {str(e)}")
+            return self._basic_optimize_numeric(series)
+
+    def _basic_optimize_numeric(self, series: pd.Series) -> pd.Series:
+        """Basic numeric optimization through simple downcasting.
+
+        Args:
+            series (pd.Series): Numeric series to optimize
+
+        Returns:
+            pd.Series: Downcast numeric series
+        """
+        try:
+            if np.issubdtype(series.dtype, np.integer):
+                return pd.to_numeric(series, downcast="integer")
+            return pd.to_numeric(series, downcast="float")
+        except Exception as e:
+            logger.warning(f"Basic numeric optimization failed: {str(e)}")
             return series
 
     def _optimize_string(self, series: pd.Series) -> pd.Series:
-        """Smart string categorization with entropy analysis."""
-        unique_count = series.nunique()
-        total_count = len(series)
-        unique_ratio = unique_count / total_count
+        """Optimize string columns through categorical conversion.
 
-        if unique_ratio < self.type_rules["category_threshold"]:
-            return series.astype("category")
+        Args:
+            series (pd.Series): String series to optimize
 
-        if self._is_categorical_code(series):
-            return series.astype("category")
+        Returns:
+            pd.Series: Optimized series (category dtype if appropriate)
+        """
+        try:
+            unique_count = series.nunique()
+            total_count = len(series)
+            unique_ratio = unique_count / total_count
 
-        return series
+            # Convert to category if under threshold
+            if unique_ratio < self.type_rules["category_threshold"]:
+                return series.astype("category")
+
+            # Check for coded categorical patterns
+            if self._is_categorical_code(series):
+                return series.astype("category")
+
+            return series
+        except Exception as e:
+            logger.warning(f"String optimization failed: {str(e)}")
+            return series
 
     def _is_datetime(self, series: pd.Series) -> bool:
-        """Advanced datetime pattern detection."""
-        date_formats = ["%Y-%m-%d", "%d/%m/%Y", "%m-%d-%Y", "%Y%m%d"]
+        """Detect datetime patterns using multiple common formats.
+
+        Args:
+            series (pd.Series): Series to check for datetime patterns
+
+        Returns:
+            bool: True if datetime pattern detected
+        """
+        date_formats = [
+            "%Y-%m-%d",
+            "%d/%m/%Y",
+            "%m-%d-%Y",
+            "%Y%m%d",
+            "%Y-%m-%d %H:%M:%S",
+            "%d-%b-%y",
+            "%m/%d/%y",
+        ]
         sample = series.dropna().sample(min(self.sample_size, len(series)))
 
         for fmt in date_formats:
@@ -106,30 +201,42 @@ class DataOptimizer:
         return False
 
     def _is_categorical_code(self, series: pd.Series) -> bool:
-        """Detect coded categorical patterns using regex."""
-        sample = series.dropna().sample(min(500, len(series)))
-        pattern = r"^[A-Za-z]+\d+$"
-        match_ratio = sample.str.contains(pattern).mean()
-        return match_ratio > 0.8
+        """Detect coded categorical patterns using regex.
 
-    def _precision_loss(self, converted: pd.Series, original: pd.Series) -> bool:
-        """Detect significant precision loss after conversion."""
+        Args:
+            series (pd.Series): String series to check
+
+        Returns:
+            bool: True if pattern matches coded categorical
+        """
         try:
-            return not np.allclose(converted, original, equal_nan=True, atol=1e-5)
-        except TypeError:
+            sample = series.dropna().sample(min(500, len(series)))
+            pattern = r"^[A-Za-z]+\d+$"
+            match_ratio = sample.str.contains(pattern, regex=True).mean()
+            return match_ratio > 0.8
+        except (ValueError, AttributeError) as e:
+            logger.debug(f"Categorical code detection failed: {str(e)}")
             return False
 
+    def _precision_loss(self, converted: pd.Series, original: pd.Series) -> bool:
+        """Detect significant precision loss after numeric conversion.
 
-class DataLoadError(Exception):
-    """Base exception for data loading errors."""
+        Args:
+            converted (pd.Series): Downcast series
+            original (pd.Series): Original series
 
-
-class SecurityValidationError(DataLoadError):
-    """Security validation failure."""
-
-
-class EmptyDataError(DataLoadError):
-    """Empty file or query result."""
+        Returns:
+            bool: True if significant precision loss detected
+        """
+        try:
+            return not np.allclose(
+                converted.astype("float64"),
+                original.astype("float64"),
+                equal_nan=True,
+                atol=1e-5,
+            )
+        except TypeError:
+            return False
 
 
 def load_csv(
@@ -200,16 +307,32 @@ def _parallel_csv_load(
 def _multiprocess_pandas_load(
     file_path: Path, loader: callable, optimizer: Optional[DataOptimizer], **kwargs
 ) -> pd.DataFrame:
-    """Parallel processing using ProcessPoolExecutor."""
-    with ProcessPoolExecutor(max_workers=MAX_PARALLEL_WORKERS) as executor:
-        chunks = list(
-            executor.map(
-                lambda x: loader(x, **kwargs),
-                _chunked_file_reader(file_path, PARALLEL_CHUNK_SIZE),
+    """Adaptive parallel processing with resource awareness."""
+    try:
+        with ProcessPoolExecutor(max_workers=MAX_PARALLEL_WORKERS) as executor:
+            chunks = list(
+                executor.map(
+                    _process_chunk_wrapper,
+                    _chunked_file_reader(file_path, PARALLEL_CHUNK_SIZE),
+                    [loader] * os.cpu_count(),
+                    [kwargs] * os.cpu_count(),
+                )
             )
-        )
+    except pickle.PicklingError:
+        with ThreadPoolExecutor(max_workers=MAX_PARALLEL_WORKERS) as executor:
+            chunks = list(
+                executor.map(
+                    lambda x: loader(x, **kwargs),
+                    _chunked_file_reader(file_path, PARALLEL_CHUNK_SIZE),
+                )
+            )
 
     return pd.concat([optimizer.optimize(chunk) for chunk in chunks], ignore_index=True)
+
+
+def _process_chunk_wrapper(chunk, loader, kwargs):
+    """Helper for proper pickle serialization."""
+    return loader(chunk, **kwargs)
 
 
 def _chunked_file_reader(file_path: Path, chunksize: int):
@@ -353,12 +476,21 @@ def load_from_db(
 def _parallel_db_load(
     query: str, connection_string: str, index_col: str, chunks: int = 4, **kwargs
 ) -> pd.DataFrame:
-    """Parallel database query execution."""
+    """Robust parallel database loading with connection pooling."""
     try:
-        engine = create_engine(connection_string)
+        engine = _get_db_engine(connection_string)
+
         with engine.connect() as conn:
+            # Verify index exists
+            conn.execute(
+                f"CREATE INDEX IF NOT EXISTS tmp_idx ON ({query}) ({index_col})"
+            )
+
             min_max = conn.execute(
-                f"SELECT MIN({index_col}), MAX({index_col}) FROM ({query}) AS sub"
+                f"""
+                SELECT MIN({index_col}), MAX({index_col})
+                FROM ({query}) AS sub
+            """
             ).fetchone()
 
         ranges = np.linspace(min_max[0], min_max[1], chunks + 1)
@@ -368,15 +500,22 @@ def _parallel_db_load(
         ]
 
         with ThreadPoolExecutor(max_workers=chunks) as executor:
-            futures = [
-                executor.submit(load_from_db, q, connection_string) for q in queries
-            ]
+            futures = []
+            for q in queries:
+                futures.append(
+                    executor.submit(load_from_db, q, connection_string, **kwargs)
+                )
+
             results = [f.result() for f in futures]
 
         return pd.concat(results, ignore_index=True)
+
     except exc.SQLAlchemyError as e:
-        logger.error(f"Parallel database load failed: {str(e)}")
+        logger.error(f"Parallel load failed: {str(e)}")
         raise DataLoadError(f"Parallel database operation failed: {str(e)}")
+    finally:
+        with engine.connect() as conn:
+            conn.execute("DROP INDEX IF EXISTS tmp_idx")
 
 
 def _process_chunks(
@@ -503,7 +642,7 @@ def _validate_query(query: str):
 def _calculate_optimal_chunksize(
     file_path: Path, user_chunksize: Optional[int]
 ) -> Optional[int]:
-    """Calculate memory-safe chunk size."""
+    """Memory-aware chunk size calculation with CPU core consideration."""
     if user_chunksize:
         return user_chunksize
 
@@ -512,15 +651,22 @@ def _calculate_optimal_chunksize(
 
         file_size = file_path.stat().st_size
         mem_available = psutil.virtual_memory().available
+        cpu_cores = os.cpu_count() or 1
 
-        if file_size > _CHUNK_READER_WARNING_THRESHOLD:
-            logger.warning(f"Loading large file: {file_size/1e9:.1f}GB")
+        chunk_size = max(
+            1,
+            int(
+                (mem_available * MEMORY_SAFETY_FACTOR)
+                / (cpu_cores * (file_size / 1000))
+            ),
+        )
 
-        return max(1, int((mem_available * 0.7) // (file_size / 1000)))
+        logger.info(f"Calculated chunk size: {chunk_size} rows")
+        return chunk_size
 
     except ImportError:
-        logger.warning("psutil not installed, using default chunking")
-        return None
+        logger.warning("psutil not installed, using conservative defaults")
+        return PARALLEL_CHUNK_SIZE
 
 
 def _process_chunks(
