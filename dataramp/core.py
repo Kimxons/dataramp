@@ -283,13 +283,28 @@ class DataVersioner:
                     default=str,
                 )
 
-    def _calculate_hash(self, data: Union[pd.DataFrame, pd.Series]) -> str:
+    def _calculate_hash(
+        self, data: Union[pd.DataFrame, pd.Series], chunk_size: int = 10000
+    ) -> str:
         """Calculate SHA-256 hash of the dataset."""
         if isinstance(data, pd.Series):
             data = data.to_frame()  # convert Series to DataFrame
-        return hashlib.sha256(
-            pd.util.hash_pandas_object(data, index=True).values.tobytes()
-        ).hexdigest()
+
+        data = data.sort_index(axis=1)
+        data = data.fillna("NULL_PLACEHOLDER")
+
+        hash_obj = hashlib.sha256()
+
+        for s in range(0, len(data), chunk_size):
+            chunk = data.iloc[s : s + chunk_size]
+            chunk_hash = (
+                pd.util.hash_pandas_object(chunk, index=True)
+                .values.astype(np.int64)
+                .tobytes()
+            )
+        hash_obj.update(chunk_hash)  # incrementally updating the hash object
+
+        return hash_obj.hexdigest()
 
     def _generate_version_id(
         self, data_hash: str, version_format: str, name: str
