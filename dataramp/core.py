@@ -10,6 +10,7 @@ import logging
 import os
 import pickle as pk
 import subprocess
+import zlib
 from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import datetime
@@ -20,22 +21,23 @@ from pathlib import Path, PurePath
 from typing import Dict, List, Optional, Tuple, Union
 
 import fasteners
+import google.protobuf.json_format as protobuf_json
 import joblib as jb
+import msgpack
 import numpy as np
 import pandas as pd
+from google.protobuf.json_format import ParseDict
 from sklearn.pipeline import Pipeline
 
-# Configure logging
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 logger = logging.getLogger(__name__)
 
-# Security configuration
 DISABLE_PICKLE = os.getenv("DISABLE_PICKLE", "false").lower() == "true"
 
-# Serialization methods
 SUPPORTED_MODEL_METHODS = {
     "joblib": (jb.dump, "joblib"),
     "pickle": (pk.dump, "pkl") if not DISABLE_PICKLE else None,
+    "msgpack": (msgpack.packb, "msgpack"),
 }
 SUPPORTED_DATA_METHODS = {
     "parquet": (pd.DataFrame.to_parquet, "parquet"),
@@ -44,6 +46,16 @@ SUPPORTED_DATA_METHODS = {
     "hdf5": (pd.DataFrame.to_hdf, "hdf5"),
     "orc": (pd.DataFrame.to_orc, "orc"),
     "sql": (pd.DataFrame.to_sql, "sql"),
+    "protobuf": (protobuf_json.MessageToJson, "proto"),
+    "msgpack": (msgpack.packb, "msgpack"),
+}
+
+SUPPORTED_COMPRESSION = {
+    "gzip": "gzip",
+    "snappy": "snappy",
+    "zstd": "zstd",
+    "lz4": "lz4",
+    "brotli": "brotli",
 }
 
 
@@ -52,28 +64,53 @@ class DataVersion:
     """Class representing a version of a dataset."""
 
     version_id: str
-    timestamp: str
-    description: str
     author: str
     data_hash: str
+    timestamp: str
+    description: str
     file_path: Path
     metadata: dict
     dataset_name: str
 
 
+@contextmanager
+def atomic_write(file_path: Path):
+    """Secure atomic file writes with permissions."""
+    temp = file_path.with_suffix(".tmp")
+    try:
+        with open(temp, "wb") as file:
+            yield file
+        os.chmod(temp, 0o600)
+        temp.replace(file_path)  # Move temp file to final destination
+    finally:
+        if temp.exists():
+            try:
+                temp.unlink()
+            except FileNotFoundError:
+                pass
+
+
 class DataVersioner:
     """Manager for dataset versions with metadata tracking and integrity checks."""
 
-    def __init__(self, base_path: Optional[Path] = None):
+    def __init__(self, base_path: Optional[Path] = None, cache_timeout: int = 3600):
+        """DataVersioner with optional cache timeout.
+
+        Args:
+            base_path: Base directory for version storage
+            cache_timeout: Timeout in seconds for the version history cache
+        """
         self.base_path = base_path or Path(get_path("processed_data_path")) / "versions"
         self.base_path.mkdir(parents=True, exist_ok=True)
         self.history_file = self.base_path / "version_history.json"
         self.lock_file = self.history_file.with_suffix(".lock")
-        self.versions = self._load_history()
+        # self.versions = self._load_history()
+        self.versions = {}
+        self.cache_timeout = cache_timeout
 
     @lru_cache(maxsize=1)
     def _load_history(self) -> Dict[str, DataVersion]:
-        """Load version history with error handling."""
+        """Load version history with lazy loading and caching."""
         with fasteners.InterProcessLock(self.lock_file):
             if not self.history_file.exists():
                 return {}
@@ -100,10 +137,127 @@ class DataVersioner:
                         file_path=Path(v["file_path"]),
                         metadata=v["metadata"],
                         dataset_name=v["metadata"]["dataset_name"],
+                        compression=v.get("compression"),
                     )
                 except KeyError as e:
                     logger.error(f"Invalid version entry {k}: {e}")
             return versions
+
+    def create_version(
+        self,
+        data: Union[pd.DataFrame, pd.Series],
+        name: str,
+        description: str = "",
+        author: Optional[str] = None,
+        version_format: str = "timestamp",
+        metadata: Optional[dict] = None,
+        method: str = "parquet",
+        compression: Optional[str] = None,
+        compression_level: Optional[int] = None,
+    ) -> DataVersion:
+        """Create a new dataset version with enhanced compression options.
+
+        Args:
+            data: The DataFrame or Series to version
+            name: Name of the dataset
+            description: Optional description of this version
+            author: Name of the version creator
+            version_format: Format for version ID ('timestamp', 'hash', or 'increment')
+            metadata: Optional dictionary of additional metadata
+            method: Data storage format ('parquet', 'csv', etc.)
+            compression: Compression codec (e.g., 'gzip', 'snappy', 'zstd')
+            compression_level: Compression level (if supported by codec)
+        """
+        if data is None or data.empty:
+            raise ValueError("Cannot version empty dataset")
+
+        if compression and compression not in SUPPORTED_COMPRESSION:
+            raise ValueError(f"Unsupported compression codec: {compression}")
+
+        safe_name = PurePath(name).name
+        data_hash = self._calculate_hash(data)
+        version_id = self._generate_version_id(data_hash, version_format, safe_name)
+        version_path = self.base_path / safe_name / version_id
+        version_path.mkdir(parents=True, exist_ok=True)
+
+        if method not in SUPPORTED_DATA_METHODS:
+            raise ValueError(f"Unsupported data format: {method}")
+
+        file_ext = SUPPORTED_DATA_METHODS[method][1]
+        data_file = version_path / f"data.{file_ext}"
+
+        compression_opts = {}
+        if compression:
+            compression_opts["compression"] = compression
+            if compression_level is not None:
+                compression_opts["compression_level"] = compression_level
+
+        with atomic_write(data_file) as temp_file:
+            if method == "protobuf":
+                if not hasattr(data, "SerializeToString"):
+                    raise ValueError("Data object must be a protobuf message")
+                temp_file.write(data.SerializeToString())
+            elif method == "msgpack":
+                temp_file.write(msgpack.packb(data.to_dict(orient="records")))
+            elif method == "csv":
+                data.to_csv(temp_file.name, index=False, **compression_opts)
+            elif method == "parquet":
+                data.to_parquet(temp_file.name, **compression_opts)
+            elif method == "feather":
+                data.to_feather(temp_file.name, compression=compression)
+            elif method == "hdf5":
+                data.to_hdf(
+                    temp_file.name,
+                    key="data",
+                    mode="w",
+                    format="table",
+                    **compression_opts,
+                )
+            elif method == "orc":
+                data.to_orc(temp_file.name, engine="pyarrow", compression=compression)
+            else:
+                save_method = getattr(data, f"to_{method}")
+                save_method(temp_file.name)
+
+        version_metadata = {
+            "dataset_name": safe_name,
+            "author": author or os.getenv("USER", "unknown"),
+            "created": datetime.now().isoformat(),
+            "description": description,
+            "columns": (
+                list(data.columns) if isinstance(data, pd.DataFrame) else [data.name]
+            ),
+            "shape": data.shape,
+            "data_hash": data_hash,
+            "custom": metadata or {},
+            "compression": compression,
+            "compression_level": compression_level,
+            "format": method,
+        }
+
+        metadata_file = version_path / "metadata.json"
+        with atomic_write(metadata_file) as temp_path:
+            with open(temp_path, "w") as f:
+                json.dump(version_metadata, f, indent=2)
+
+        version = DataVersion(
+            version_id=version_id,
+            timestamp=version_metadata["created"],
+            description=description,
+            author=version_metadata["author"],
+            data_hash=data_hash,
+            file_path=data_file,
+            metadata=version_metadata,
+            dataset_name=safe_name,
+            compression=compression,
+        )
+
+        with fasteners.InterProcessLock(self.lock_file):
+            self.versions = self._load_history()
+            self.versions[version_id] = version
+            self._save_history()
+        logger.info(f"Created version {version_id} of dataset {safe_name}")
+        return version
 
     def _save_history(self):
         """Save version history with atomic write."""
@@ -123,88 +277,6 @@ class DataVersioner:
         return hashlib.sha256(
             pd.util.hash_pandas_object(data, index=True).values.tobytes()
         ).hexdigest()
-
-    def create_version(
-        self,
-        data: Union[pd.DataFrame, pd.Series],
-        name: str,
-        description: str = "",
-        author: Optional[str] = None,
-        version_format: str = "timestamp",
-        metadata: Optional[dict] = None,
-        method: str = "parquet",
-        compression: Optional[str] = None,
-    ) -> DataVersion:
-        """Create a new dataset version with atomic writes and validation."""
-        if data is None or data.empty:
-            raise ValueError("Cannot version empty dataset")
-        safe_name = PurePath(name).name
-        data_hash = self._calculate_hash(data)
-        version_id = self._generate_version_id(data_hash, version_format, safe_name)
-        version_path = self.base_path / safe_name / version_id
-        version_path.mkdir(parents=True, exist_ok=True)
-
-        if method not in SUPPORTED_DATA_METHODS:
-            raise ValueError(f"Unsupported data format: {method}")
-
-        file_ext = SUPPORTED_DATA_METHODS[method][1]
-        data_file = version_path / f"data.{file_ext}"
-        with atomic_write(data_file) as temp_path:
-            if method == "csv":
-                data.to_csv(temp_path, index=False, compression=compression)
-            elif method == "parquet":
-                data.to_parquet(temp_path, compression=compression)
-            elif method == "feather":
-                data.to_feather(temp_path, compression=compression)
-            elif method == "hdf5":
-                data.to_hdf(
-                    temp_path,
-                    key="data",
-                    mode="w",
-                    format="table",
-                    compression=compression,
-                )
-            elif method == "orc":
-                data.to_orc(temp_path, engine="pyarrow", compression=compression)
-            else:
-                getattr(data, f"to_{method}")(temp_path)
-
-        # metadata
-        version_metadata = {
-            "dataset_name": safe_name,
-            "author": author or os.getenv("USER", "unknown"),
-            "created": datetime.now().isoformat(),
-            "description": description,
-            "columns": (
-                list(data.columns) if isinstance(data, pd.DataFrame) else [data.name]
-            ),
-            "shape": data.shape,
-            "data_hash": data_hash,
-            "custom": metadata or {},
-            "compression": compression,
-        }
-
-        metadata_file = version_path / "metadata.json"
-        with atomic_write(metadata_file) as temp_path:
-            with open(temp_path, "w") as f:
-                json.dump(version_metadata, f, indent=2)
-
-        version = DataVersion(
-            version_id=version_id,
-            timestamp=version_metadata["created"],
-            description=description,
-            author=version_metadata["author"],
-            data_hash=data_hash,
-            file_path=data_file,
-            metadata=version_metadata,
-            dataset_name=safe_name,
-        )
-
-        with fasteners.InterProcessLock(self.lock_file):
-            self.versions[version_id] = version
-            self._save_history()
-        logger.info(f"Created version {version_id} of dataset {safe_name}")
-        return version
 
     def _generate_version_id(
         self, data_hash: str, version_format: str, name: str
@@ -262,23 +334,6 @@ class DataVersioner:
         except Exception as e:
             logger.error(f"Error validating version {version_id}: {e}")
             return False
-
-
-@contextmanager
-def atomic_write(file_path: Path):
-    """Secure atomic file writes with permissions."""
-    temp = file_path.with_suffix(".tmp")
-    try:
-        with open(temp, "w") as file:
-            yield file
-        os.chmod(temp, 0o600)
-        temp.replace(file_path)  # Move temp file to final destination
-    finally:
-        if temp.exists():
-            try:
-                temp.unlink()
-            except FileNotFoundError:
-                pass
 
 
 def get_project_root(filepath: Optional[str] = None) -> Path:
