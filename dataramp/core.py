@@ -498,7 +498,7 @@ def create_project(
     """
     readme = base_path / "README.md"
     with atomic_write(readme) as temp_path:
-        temp_path.write_text(readme_template)
+        temp_path.write(readme_template)
 
     # Create dependency files
     _generate_requirements_file(base_path, packages or [])
@@ -525,7 +525,7 @@ def _generate_requirements_file(project_path: Path):
 
     req_file = project_path / "requirements.txt"
     with atomic_write(req_file) as temp_path:
-        temp_path.write_text("\n".join(lines))
+        temp_path.write("\n".join(lines))
 
 
 def _generate_environment_file(project_path: Path):
@@ -551,7 +551,7 @@ dependencies:
 """
     environment_path = project_path / "environment.yml"
     with atomic_write(environment_path) as temp_path:
-        temp_path.write_text(environment_content)
+        temp_path.write(environment_content)
 
 
 def model_save(
