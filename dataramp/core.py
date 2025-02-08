@@ -80,11 +80,11 @@ class DataVersion:
 
 
 @contextmanager
-def atomic_write(file_path: Path):
+def atomic_write(file_path: Path, mode: str = "w", encoding: str = "utf-8"):
     """Secure atomic file writes with permissions."""
     temp = file_path.with_suffix(".tmp")
     try:
-        with open(temp, "wb") as file:
+        with open(temp, mode, encoding=encoding) as file:
             yield file
         os.chmod(temp, 0o600)
         temp.replace(file_path)  # Move temp file to final destination
@@ -478,8 +478,8 @@ def create_project(
             "model_path": str(base_path / "outputs/models"),
             "logging_level": "INFO",
         }
-        with atomic_write(config_path) as temp_path:
-            temp_path.write_text(json.dumps(config_content, indent=4))
+        with atomic_write(config_path, mode="w", encoding="utf-8") as temp_path:
+            temp_path.write(json.dumps(config_content, indent=4))
 
     # Create README file
     readme_template = f"""# {project_name}
