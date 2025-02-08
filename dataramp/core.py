@@ -10,7 +10,6 @@ import logging
 import os
 import pickle as pk
 import subprocess
-import zlib
 from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import datetime
@@ -26,7 +25,6 @@ import joblib as jb
 import msgpack
 import numpy as np
 import pandas as pd
-from google.protobuf.json_format import ParseDict
 from sklearn.pipeline import Pipeline
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
