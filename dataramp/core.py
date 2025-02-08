@@ -106,7 +106,6 @@ class DataVersioner:
         self.versions = {}
         self.cache_timeout = cache_timeout
 
-    @lru_cache(maxsize=1)
     def _load_history(self) -> Dict[str, DataVersion]:
         """Load version history with lazy loading and caching."""
         with fasteners.InterProcessLock(self.lock_file):
