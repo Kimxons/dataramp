@@ -5,11 +5,13 @@ managing file paths, and saving machine learning models using different serializ
 """
 
 import hashlib
+import hmac
 import json
 import logging
 import os
 import pickle as pk
 import subprocess
+from concurrent.futures import ThreadPoolExecutor
 from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import datetime
@@ -283,28 +285,69 @@ class DataVersioner:
                     default=str,
                 )
 
+    # def _calculate_hash(
+    #     self, data: Union[pd.DataFrame, pd.Series], chunk_size: int = 10000
+    # ) -> str:
+    #     """Calculate SHA-256 hash of the dataset."""
+    #     if isinstance(data, pd.Series):
+    #         data = data.to_frame()  # convert Series to DataFrame
+
+    #     data = data.sort_index(axis=1)
+    #     data = data.fillna("NULL_PLACEHOLDER")
+
+    #     hash_obj = hashlib.sha256()
+
+    #     for s in range(0, len(data), chunk_size):
+    #         chunk = data.iloc[s : s + chunk_size]
+    #         chunk_hash = (
+    #             pd.util.hash_pandas_object(chunk, index=True)
+    #             .values.astype(np.int64)
+    #             .tobytes()
+    #         )
+    #     hash_obj.update(chunk_hash)  # incrementally updating the hash object
+
+    #     return hash_obj.hexdigest()
+
     def _calculate_hash(
-        self, data: Union[pd.DataFrame, pd.Series], chunk_size: int = 10000
+        self,
+        data: Union[pd.DataFrame, pd.Series],
+        chunk_size: int = 10000,
+        num_workers: int = 4,
+        secret_key: bytes = b"secure_key",
     ) -> str:
-        """Calculate SHA-256 hash of the dataset."""
+
         if isinstance(data, pd.Series):
-            data = data.to_frame()  # convert Series to DataFrame
+            data = data.to_frame()  # Convert Series to DataFrame
 
         data = data.sort_index(axis=1)
+
         data = data.fillna("NULL_PLACEHOLDER")
 
-        hash_obj = hashlib.sha256()
-
-        for s in range(0, len(data), chunk_size):
-            chunk = data.iloc[s : s + chunk_size]
+        def hash_chunk(chunk: pd.DataFrame) -> bytes:
+            """Hashes a single chunk of the dataset."""
             chunk_hash = (
                 pd.util.hash_pandas_object(chunk, index=True)
                 .values.astype(np.int64)
                 .tobytes()
             )
-        hash_obj.update(chunk_hash)  # incrementally updating the hash object
+            return hmac.new(secret_key, chunk_hash, hashlib.sha256).digest()
 
-        return hash_obj.hexdigest()
+        chunk_hashes = []
+
+        with ThreadPoolExecutor(max_workers=num_workers) as executor:
+            futures = [
+                executor.submit(hash_chunk, data.iloc[i : i + chunk_size])
+                for i in range(0, len(data), chunk_size)
+            ]
+
+            for future in futures:
+                chunk_hashes.append(future.result())
+
+        final_hash = hmac.new(
+            secret_key, b"".join(chunk_hashes), hashlib.sha256
+        ).hexdigest()
+
+        return final_hash
 
     def _generate_version_id(
         self, data_hash: str, version_format: str, name: str
