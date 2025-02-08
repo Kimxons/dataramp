@@ -56,6 +56,12 @@ SUPPORTED_COMPRESSION = {
     "brotli": "brotli",
 }
 
+SUPPORTED_MODEL_METHODS = {
+    "joblib": (jb.dump, "joblib"),
+    "pickle": (pk.dump, "pkl") if not DISABLE_PICKLE else None,
+    "msgpack": (msgpack.packb, "msgpack"),
+}
+
 
 @dataclass
 class DataVersion:
@@ -105,19 +111,30 @@ class DataVersioner:
         # self.versions = self._load_history()
         self.versions = {}
         self.cache_timeout = cache_timeout
+        self._ensure_history_file()
+
+    def _ensure_history_file(self):
+        """Ensure version history file exists & is valid JSON."""
+        if not self.history_file.exists():
+            with atomic_write(self.history_file) as f:
+                json.dump({}, f)
+        else:
+            try:
+                with open(self.history_file, "r", encoding="utf-8") as f:
+                    json.load(f)  # Attempt to load JSON to verify integrity
+            except (json.JSONDecodeError, IOError):
+                logger.warning("Corrupted version history detected. Resetting file.")
+                with atomic_write(self.history_file) as f:
+                    json.dump({}, f)
 
     def _load_history(self) -> Dict[str, DataVersion]:
         """Load version history with lazy loading and caching."""
         with fasteners.InterProcessLock(self.lock_file):
             if not self.history_file.exists():
                 return {}
-
             try:
-                with open(self.history_file) as f:
-                    history = f.read().strip()
-                    if not history:
-                        return {}
-                    history = json.loads(history)
+                with open(self.history_file, "r", encoding="utf-8") as f:
+                    history = json.load(f)
             except (json.JSONDecodeError, IOError) as e:
                 logger.error(f"Error loading version history: {e}")
                 return {}
@@ -134,7 +151,6 @@ class DataVersioner:
                         file_path=Path(v["file_path"]),
                         metadata=v["metadata"],
                         dataset_name=v["metadata"]["dataset_name"],
-                        compression=v.get("compression"),
                     )
                 except KeyError as e:
                     logger.error(f"Invalid version entry {k}: {e}")
@@ -270,7 +286,7 @@ class DataVersioner:
     def _calculate_hash(self, data: Union[pd.DataFrame, pd.Series]) -> str:
         """Calculate SHA-256 hash of the dataset."""
         if isinstance(data, pd.Series):
-            data = data.to_frame()
+            data = data.to_frame()  # convert Series to DataFrame
         return hashlib.sha256(
             pd.util.hash_pandas_object(data, index=True).values.tobytes()
         ).hexdigest()
