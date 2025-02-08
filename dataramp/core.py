@@ -501,7 +501,7 @@ def create_project(
         temp_path.write(readme_template)
 
     # Create dependency files
-    _generate_requirements_file(base_path, packages or [])
+    _generate_requirements_file(base_path)
     _generate_environment_file(base_path)
 
     # Initialize Git repository if requested
