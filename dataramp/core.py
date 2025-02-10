@@ -87,7 +87,8 @@ def atomic_write(file_path: Path, mode: str = "w", encoding: str = "utf-8"):
         with open(temp, mode, encoding=encoding) as file:
             yield file
         os.chmod(temp, 0o600)
-        temp.replace(file_path)  # Move temp file to final destination
+        os.rename(temp, file_path)
+        # temp.replace(file_path)  # Move temp file to final destination
     finally:
         if temp.exists():
             try:
