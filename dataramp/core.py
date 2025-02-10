@@ -88,7 +88,6 @@ def atomic_write(file_path: Path, mode: str = "w", encoding: str = "utf-8"):
             yield file
         os.chmod(temp, 0o600)
         os.rename(temp, file_path)
-        # temp.replace(file_path)  # Move temp file to final destination
     finally:
         if temp.exists():
             try:
@@ -314,24 +313,22 @@ class DataVersioner:
         data: Union[pd.DataFrame, pd.Series],
         chunk_size: int = 10000,
         num_workers: int = 4,
-        secret_key: bytes = b"secure_key",
     ) -> str:
 
         if isinstance(data, pd.Series):
             data = data.to_frame()  # Convert Series to DataFrame
 
         data = data.sort_index(axis=1)
-
         data = data.fillna("NULL_PLACEHOLDER")
 
         def hash_chunk(chunk: pd.DataFrame) -> bytes:
-            """Hashes a single chunk of the dataset."""
+            """Hash a single chunk of the dataset."""
             chunk_hash = (
                 pd.util.hash_pandas_object(chunk, index=True)
                 .values.astype(np.int64)
                 .tobytes()
             )
-            return hmac.new(secret_key, chunk_hash, hashlib.sha256).digest()
+            return hashlib.sha256(chunk_hash).digest()
 
         chunk_hashes = []
 
@@ -344,10 +341,7 @@ class DataVersioner:
             for future in futures:
                 chunk_hashes.append(future.result())
 
-        final_hash = hmac.new(
-            secret_key, b"".join(chunk_hashes), hashlib.sha256
-        ).hexdigest()
-
+        final_hash = hashlib.sha256(b"".join(chunk_hashes)).hexdigest()
         return final_hash
 
     def _generate_version_id(
