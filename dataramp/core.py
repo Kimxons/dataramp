@@ -471,7 +471,6 @@ def create_project(
     for dir in dirs:
         create_directory(dir)
 
-    # Create config file
     if not config_path.exists():
         config_content = {
             "data_path": str(base_path / "datasets"),
@@ -481,7 +480,6 @@ def create_project(
         with atomic_write(config_path, mode="w", encoding="utf-8") as temp_path:
             temp_path.write(json.dumps(config_content, indent=4))
 
-    # Create README file
     readme_template = f"""# {project_name}
 
     ## Description
@@ -500,11 +498,9 @@ def create_project(
     with atomic_write(readme) as temp_path:
         temp_path.write(readme_template)
 
-    # Create dependency files
     _generate_requirements_file(base_path)
     _generate_environment_file(base_path)
 
-    # Initialize Git repository if requested
     if init_git:
         subprocess.run(["git", "init"], cwd=base_path, check=True)
 
