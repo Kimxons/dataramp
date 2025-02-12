@@ -5,7 +5,6 @@ managing file paths, and saving machine learning models using different serializ
 """
 
 import hashlib
-import hmac
 import json
 import logging
 import os
@@ -123,7 +122,7 @@ class DataVersioner:
         else:
             try:
                 with open(self.history_file, "r", encoding="utf-8") as f:
-                    json.load(f)  # Attempt to load JSON to verify integrity
+                    json.load(f)  # Load JSON to verify integrity
             except (json.JSONDecodeError, IOError):
                 logger.warning("Corrupted version history detected. Resetting file.")
                 with atomic_write(self.history_file) as f:
