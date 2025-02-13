@@ -7,17 +7,18 @@ import csv
 import logging
 import os
 import pickle
+import threading
 import warnings
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
 from pathlib import Path
 from typing import Any, Dict, Iterable, Optional, Union
 
-import filetype
 import numpy as np
 import pandas as pd
+import sqlparse
 from dask import dataframe as dd
 from sqlalchemy import create_engine, exc, text
-from tenacity import retry, stop_after_attempt, wait_fixed
+from sqlalchemy.engine import Engine
 
 from .exceptions import DataLoadError, EmptyDataError, SecurityValidationError
 
@@ -29,85 +30,100 @@ MAX_CATEGORY_CARDINALITY = 1000
 MAX_PARALLEL_WORKERS = int(os.getenv("MAX_PARALLEL_WORKERS", os.cpu_count() or 4))
 MEMORY_SAFETY_FACTOR = float(os.getenv("MEMORY_SAFETY_FACTOR", 0.7))
 PARALLEL_CHUNK_SIZE = int(os.getenv("PARALLEL_CHUNK_SIZE", 10**5))  # 100k rows
+MAX_FILE_SIZE = 1024**3 * 10  # 10GB
+
+
+class ConnectionPool:
+    """Thread-safe database connection pool with health checks."""
+
+    _instance = None
+    _lock = threading.Lock()
+
+    def __new__(cls):
+        if not cls._instance:
+            cls._instance = super().__new__(cls)
+            cls._instance.pools = {}
+        return cls._instance
+
+    def get_engine(self, conn_str: str) -> Engine:
+        with self._lock:
+            engine = self.pools.get(conn_str)
+            if not engine or not self._is_healthy(engine):
+                engine = self._create_engine(conn_str)
+                self.pools[conn_str] = engine
+            return engine
+
+    def _is_healthy(self, engine: Engine) -> bool:
+        try:
+            with engine.connect() as conn:
+                conn.execute(text("SELECT 1"))
+            return True
+        except exc.SQLAlchemyError:
+            return False
+
+    def _create_engine(self, conn_str: str) -> Engine:
+        return create_engine(
+            conn_str,
+            pool_size=10,
+            max_overflow=20,
+            pool_recycle=3600,
+            pool_pre_ping=True,
+            connect_args={"application_name": "DataLoader"},
+        )
 
 
 class DataOptimizer:
     """ML-powered data type optimization with automatic fallback to basic methods."""
 
-    def __init__(self, sample_size=10000):
+    """Robust data type optimization with ML fallback"""
+
+    def __init__(self, sample_size: int = 10000):
         self.sample_size = sample_size
         self.type_rules = {
             "category_threshold": 0.1,
             "float_precision": 32,
             "int_threshold": 0.2,
         }
-        self._configure_ml()
+        self._sklearn_available = self._configure_ml()
 
-    def _configure_ml(self):
+    def _configure_ml(self) -> bool:
         """Safe scikit-learn import with version check."""
         try:
             from sklearn import __version__ as sk_version
 
-            if int(sk_version.split(".")[1]) < 22:  # Check for minimum version
-                raise ImportError("scikit-learn version too old")
-            self._sklearn_available = True
+            if int(sk_version.split(".")[1]) < 22:
+                raise ImportError("scikit-learn >= 0.22 required")
+            return True
         except ImportError as e:
             logger.warning(f"ML optimizations disabled: {str(e)}")
-            self._sklearn_available = False
-
-    @retry(stop=stop_after_attempt(3), wait=wait_fixed(1))
-    def optimize(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Robust optimization with memory checks."""
-        original_memory = df.memory_usage(deep=True).sum()
-
-        try:
-            df = self._optimize_dataframe(df)
-        except Exception as e:
-            logger.error(f"Optimization failed: {str(e)}")
-            return df  # Return original dataframe on failure
-
-        optimized_memory = df.memory_usage(deep=True).sum()
-        logger.info(
-            f"Memory reduced from {original_memory} to {optimized_memory} bytes"
-        )
-        return df
-
-    def _check_sklearn(self) -> bool:
-        """Safely check if scikit-learn is available in the environment."""
-        try:
-            from sklearn.ensemble import IsolationForest  # noqa: F401
-
-            return True
-        except ImportError:
-            logger.warning("scikit-learn not installed, using basic optimization")
             return False
 
-    # def optimize(self, df: pd.DataFrame) -> pd.DataFrame:
-    #     """Optimize dataframe memory usage through type inference and conversion.
+    def optimize(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Optimize dataframe memory usage through type inference and conversion.
 
-    #     Args:
-    #         df (pd.DataFrame): Input dataframe to optimize
+        Args:
+            df (pd.DataFrame): Input dataframe to optimize
 
-    #     Returns:
-    #         pd.DataFrame: Optimized dataframe with reduced memory usage
-    #     """
-    #     for col in df.columns:
-    #         col_data = df[col]
+        Returns:
+            pd.DataFrame: Optimized dataframe with reduced memory usage
+        """
+        for col in df.columns:
+            col_data = df[col]
 
-    #         # Handle datetime detection first
-    #         if self._is_datetime(col_data):
-    #             df[col] = pd.to_datetime(col_data)
-    #             continue
+            # Handle datetime detection first
+            if self._is_datetime(col_data):
+                df[col] = pd.to_datetime(col_data)
+                continue
 
-    #         # Numeric column optimization
-    #         if pd.api.types.is_numeric_dtype(col_data):
-    #             df[col] = self._optimize_numeric(col_data)
+            # Numeric column optimization
+            if pd.api.types.is_numeric_dtype(col_data):
+                df[col] = self._optimize_numeric(col_data)
 
-    #         # String column optimization
-    #         elif pd.api.types.is_string_dtype(col_data):
-    #             df[col] = self._optimize_string(col_data)
+            # String column optimization
+            elif pd.api.types.is_string_dtype(col_data):
+                df[col] = self._optimize_string(col_data)
 
-    #     return df
+        return df
 
     def _optimize_numeric(self, series: pd.Series) -> pd.Series:
         """Hybrid numeric optimization strategy.
