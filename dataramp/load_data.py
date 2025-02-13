@@ -12,10 +12,12 @@ from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
 from pathlib import Path
 from typing import Any, Dict, Iterable, Optional, Union
 
+import filetype
 import numpy as np
 import pandas as pd
 from dask import dataframe as dd
 from sqlalchemy import create_engine, exc, text
+from tenacity import retry, stop_after_attempt, wait_fixed
 
 from .exceptions import DataLoadError, EmptyDataError, SecurityValidationError
 
@@ -24,29 +26,51 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_SAMPLE_SIZE = 10_000
 MAX_CATEGORY_CARDINALITY = 1000
-_CHUNK_READER_WARNING_THRESHOLD = 1024 * 1024 * 1024  # 1GB
-
-MAX_PARALLEL_WORKERS = 8
-MEMORY_SAFETY_FACTOR = 0.7
-PARALLEL_CHUNK_SIZE = 10**5  # 100,000 rows per chunk
+MAX_PARALLEL_WORKERS = int(os.getenv("MAX_PARALLEL_WORKERS", os.cpu_count() or 4))
+MEMORY_SAFETY_FACTOR = float(os.getenv("MEMORY_SAFETY_FACTOR", 0.7))
+PARALLEL_CHUNK_SIZE = int(os.getenv("PARALLEL_CHUNK_SIZE", 10**5))  # 100k rows
 
 
 class DataOptimizer:
     """ML-powered data type optimization with automatic fallback to basic methods."""
 
     def __init__(self, sample_size=10000):
-        """Initialize the data optimizer.
-
-        Args:
-            sample_size (int): Number of samples to use for statistical analysis
-        """
         self.sample_size = sample_size
         self.type_rules = {
-            "category_threshold": 0.1,  # Max unique ratio for category conversion
-            "float_precision": 32,  # Bit precision for float columns
-            "int_threshold": 0.2,  # Null ratio threshold for integer conversion
+            "category_threshold": 0.1,
+            "float_precision": 32,
+            "int_threshold": 0.2,
         }
-        self._sklearn_available = self._check_sklearn()
+        self._configure_ml()
+
+    def _configure_ml(self):
+        """Safe scikit-learn import with version check."""
+        try:
+            from sklearn import __version__ as sk_version
+
+            if int(sk_version.split(".")[1]) < 22:  # Check for minimum version
+                raise ImportError("scikit-learn version too old")
+            self._sklearn_available = True
+        except ImportError as e:
+            logger.warning(f"ML optimizations disabled: {str(e)}")
+            self._sklearn_available = False
+
+    @retry(stop=stop_after_attempt(3), wait=wait_fixed(1))
+    def optimize(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Robust optimization with memory checks."""
+        original_memory = df.memory_usage(deep=True).sum()
+
+        try:
+            df = self._optimize_dataframe(df)
+        except Exception as e:
+            logger.error(f"Optimization failed: {str(e)}")
+            return df  # Return original dataframe on failure
+
+        optimized_memory = df.memory_usage(deep=True).sum()
+        logger.info(
+            f"Memory reduced from {original_memory} to {optimized_memory} bytes"
+        )
+        return df
 
     def _check_sklearn(self) -> bool:
         """Safely check if scikit-learn is available in the environment."""
@@ -58,32 +82,32 @@ class DataOptimizer:
             logger.warning("scikit-learn not installed, using basic optimization")
             return False
 
-    def optimize(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Optimize dataframe memory usage through type inference and conversion.
+    # def optimize(self, df: pd.DataFrame) -> pd.DataFrame:
+    #     """Optimize dataframe memory usage through type inference and conversion.
 
-        Args:
-            df (pd.DataFrame): Input dataframe to optimize
+    #     Args:
+    #         df (pd.DataFrame): Input dataframe to optimize
 
-        Returns:
-            pd.DataFrame: Optimized dataframe with reduced memory usage
-        """
-        for col in df.columns:
-            col_data = df[col]
+    #     Returns:
+    #         pd.DataFrame: Optimized dataframe with reduced memory usage
+    #     """
+    #     for col in df.columns:
+    #         col_data = df[col]
 
-            # Handle datetime detection first
-            if self._is_datetime(col_data):
-                df[col] = pd.to_datetime(col_data)
-                continue
+    #         # Handle datetime detection first
+    #         if self._is_datetime(col_data):
+    #             df[col] = pd.to_datetime(col_data)
+    #             continue
 
-            # Numeric column optimization
-            if pd.api.types.is_numeric_dtype(col_data):
-                df[col] = self._optimize_numeric(col_data)
+    #         # Numeric column optimization
+    #         if pd.api.types.is_numeric_dtype(col_data):
+    #             df[col] = self._optimize_numeric(col_data)
 
-            # String column optimization
-            elif pd.api.types.is_string_dtype(col_data):
-                df[col] = self._optimize_string(col_data)
+    #         # String column optimization
+    #         elif pd.api.types.is_string_dtype(col_data):
+    #             df[col] = self._optimize_string(col_data)
 
-        return df
+    #     return df
 
     def _optimize_numeric(self, series: pd.Series) -> pd.Series:
         """Hybrid numeric optimization strategy.

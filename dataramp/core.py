@@ -86,7 +86,9 @@ def atomic_write(file_path: Path, mode: str = "w", encoding: str = "utf-8"):
         with open(temp, mode, encoding=encoding) as file:
             yield file
         os.chmod(temp, 0o600)
-        os.rename(temp, file_path)
+        os.replace(
+            temp, file_path
+        )  # conflicted between replace and rename (replace is more atomic than rename on Windows)
     finally:
         if temp.exists():
             try:
@@ -289,7 +291,6 @@ class DataVersioner:
         chunk_size: int = 10000,
         num_workers: int = 4,
     ) -> str:
-
         if isinstance(data, pd.Series):
             data = data.to_frame()  # Convert Series to DataFrame
 
@@ -322,7 +323,7 @@ class DataVersioner:
     def _generate_version_id(
         self, data_hash: str, version_format: str, name: str
     ) -> str:
-        """Generate version identifier with collision checks."""
+        """Generate version ID scoped to dataset."""
         if version_format == "timestamp":
             version_id = datetime.now().strftime("%Y%m%dT%H%M%S")
         elif version_format == "hash":
