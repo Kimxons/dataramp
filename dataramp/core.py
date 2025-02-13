@@ -109,8 +109,7 @@ class DataVersioner:
         self.base_path.mkdir(parents=True, exist_ok=True)
         self.history_file = self.base_path / "version_history.json"
         self.lock_file = self.history_file.with_suffix(".lock")
-        # self.versions = self._load_history()
-        self.versions = {}
+        self.versions = {}  # Structure: {dataset_name: {version_id: DataVersion}}
         self.cache_timeout = cache_timeout
         self._ensure_history_file()
 
@@ -283,29 +282,6 @@ class DataVersioner:
                     indent=2,
                     default=str,
                 )
-
-    # def _calculate_hash(
-    #     self, data: Union[pd.DataFrame, pd.Series], chunk_size: int = 10000
-    # ) -> str:
-    #     """Calculate SHA-256 hash of the dataset."""
-    #     if isinstance(data, pd.Series):
-    #         data = data.to_frame()  # convert Series to DataFrame
-
-    #     data = data.sort_index(axis=1)
-    #     data = data.fillna("NULL_PLACEHOLDER")
-
-    #     hash_obj = hashlib.sha256()
-
-    #     for s in range(0, len(data), chunk_size):
-    #         chunk = data.iloc[s : s + chunk_size]
-    #         chunk_hash = (
-    #             pd.util.hash_pandas_object(chunk, index=True)
-    #             .values.astype(np.int64)
-    #             .tobytes()
-    #         )
-    #     hash_obj.update(chunk_hash)  # incrementally updating the hash object
-
-    #     return hash_obj.hexdigest()
 
     def _calculate_hash(
         self,
