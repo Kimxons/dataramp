@@ -34,6 +34,7 @@ MAX_PARALLEL_WORKERS = int(os.getenv("MAX_PARALLEL_WORKERS", os.cpu_count() or 4
 MEMORY_SAFETY_FACTOR = float(os.getenv("MEMORY_SAFETY_FACTOR", 0.7))
 PARALLEL_CHUNK_SIZE = int(os.getenv("PARALLEL_CHUNK_SIZE", 10**5))  # 100k rows
 MAX_FILE_SIZE = 1024**3 * 10  # 10GB
+MIN_PARALLEL_SIZE = 1024**2 * 100  # 100MB
 
 
 class ConnectionPool:
@@ -67,9 +68,9 @@ class ConnectionPool:
     def _create_engine(self, conn_str: str) -> Engine:
         return create_engine(
             conn_str,
-            pool_size=10,
-            max_overflow=20,
-            pool_recycle=3600,
+            pool_size=int(os.getenv("DB_POOL_SIZE", 10)),
+            max_overflow=int(os.getenv("DB_MAX_OVERFLOW", 20)),
+            pool_recycle=int(os.getenv("DB_POOL_RECYCLE", 3600)),
             pool_pre_ping=True,
             connect_args={"application_name": "DataLoader"},
         )
@@ -87,107 +88,105 @@ class DataOptimizer:
             "float_precision": 32,
             "int_threshold": 0.2,
         }
-        self._sklearn_available = self._configure_ml()
 
-    def _configure_ml(self) -> bool:
-        """Safe scikit-learn import with version check."""
+    def _is_datetime(self, col_data: pd.Series) -> bool:
+        """Detect datetime columns with coercion validation."""
         try:
-            from sklearn import __version__ as sk_version
-
-            if int(sk_version.split(".")[1]) < 22:
-                raise ImportError("scikit-learn >= 0.22 required")
+            pd.to_datetime(col_data, errors="raise")
             return True
-        except ImportError as e:
-            logger.warning(f"ML optimizations disabled: {str(e)}")
+        except (ValueError, TypeError):
             return False
+
+    def _optimize_numeric(self, col_data: pd.Series) -> pd.Series:
+        """Downcast numeric columns with precision preservation."""
+        if pd.api.types.is_integer_dtype(col_data):
+            return pd.to_numeric(col_data, downcast="integer")
+        elif pd.api.types.is_float_dtype(col_data):
+            return pd.to_numeric(col_data, downcast="float")
+        return col_data
+
+    def _optimize_string(self, col_data: pd.Series) -> pd.Series:
+        """Convert strings to categories when cardinality is low."""
+        if 1 < col_data.nunique() <= MAX_CATEGORY_CARDINALITY:
+            return col_data.astype("category")
+        return col_data
+
+    def _validate_optimization_integrity(
+        self, original: pd.DataFrame, optimized: pd.DataFrame
+    ):
+        """Ensure data integrity after transformations."""
+        if original.shape != optimized.shape:
+            raise RuntimeError(
+                f"Shape mismatch: original {original.shape}, optimized {optimized.shape}"
+            )
+
+        sample = original.sample(min(100, len(original)))
+        for col in original.columns:
+            if not original[col].equals(optimized[col].loc[sample.index]):
+                raise RuntimeError(f"Data corruption detected in column {col}")
 
     @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, max=10))
     def optimize(self, df: pd.DataFrame) -> pd.DataFrame:
         """Optimize dataframe with memory safety checks."""
+        if df.empty:
+            return df
+
         original_memory = df.memory_usage(deep=True).sum()
+        optimized_df = df.copy()
 
         try:
-            df = self._optimize_dataframe(df)
-            optimized_memory = df.memory_usage(deep=True).sum()
-            logger.info(
-                f"Memory reduced by {(1 - optimized_memory/original_memory):.1%}"
-            )
-            return df
+            logger.debug(f"Original memory usage: {original_memory / 1024**2:.2f} MB")
+            for col in optimized_df.columns:
+                col_data = optimized_df[col]
+
+                if self._is_datetime(col_data):
+                    optimized_df[col] = pd.to_datetime(col_data, errors="coerce")
+                elif pd.api.types.is_numeric_dtype(col_data):
+                    optimized_df[col] = self._optimize_numeric(col_data)
+                elif pd.api.types.is_string_dtype(col_data):
+                    optimized_df[col] = self._optimize_string(col_data)
+
+            self._validate_optimization_integrity(df, optimized_df)
+            return optimized_df
+
         except Exception as e:
             logger.error(f"Optimization failed: {str(e)}")
             return df
 
-    def _optimize_dataframe(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Core dataframe optimization logic with enhanced safety features.
 
-        Args:
-            df: Input dataframe to optimize
+def _validate_file_type(file_path: Path, expected_type: str):
+    """Enhanced file validation with CSV sniffing."""
+    if expected_type.lower() == "csv":
+        if file_path.suffix.lower() != ".csv":
+            raise SecurityValidationError("Invalid CSV file extension")
+        _validate_csv_structure(file_path)
+    else:
+        guess = filetype.guess(str(file_path))
+        if not guess or guess.extension != expected_type.lower():
+            raise SecurityValidationError(
+                f"Invalid {expected_type} file signature. Detected: {guess.extension if guess else 'unknown'}"
+            )
 
-        Returns:
-            Optimized pandas DataFrame
 
-        Raises:
-            RuntimeError: If optimization fails critically (caught by retry decorator)
-        """
-        optimized_df = df.copy()
-
-        stats = {
-            "initial_memory": optimized_df.memory_usage(deep=True).sum(),
-            "converted_columns": 0,
-            "failed_conversions": 0,
-            "type_changes": {},
-        }
-
-        for col in optimized_df.columns:
-            col_data = optimized_df[col]
-            original_type = str(col_data.dtype)
-            original_memory = col_data.memory_usage(deep=True)
+def _validate_csv_structure(file_path: Path, sample_size: int = 1024):
+    """Validate CSV structure using Python's CSV sniffer."""
+    try:
+        with open(file_path, "rb") as f:
+            sample = f.read(sample_size)
+            if b"\0" in sample:
+                raise SecurityValidationError(
+                    "File contains null bytes (possible binary file)"
+                )
 
             try:
-                optimized = False
+                dialect = csv.Sniffer().sniff(sample.decode("utf-8", errors="replace"))
+                if not dialect.delimiter:
+                    raise SecurityValidationError("Unable to detect CSV delimiter")
+            except csv.Error as e:
+                raise SecurityValidationError(f"CSV format error: {str(e)}")
 
-                if self._is_datetime(col_data):
-                    optimized_df[col] = pd.to_datetime(col_data, errors="coerce")
-                    optimized = True
-                elif pd.api.types.is_numeric_dtype(col_data):
-                    optimized_df[col] = self._optimize_numeric(col_data)
-                    optimized = True
-                elif pd.api.types.is_string_dtype(col_data):
-                    optimized_df[col] = self._optimize_string(col_data)
-                    optimized = True
-
-                if optimized:
-                    new_type = str(optimized_df[col].dtype)
-                    new_memory = optimized_df[col].memory_usage(deep=True)
-
-                    stats["type_changes"][col] = {
-                        "from": original_type,
-                        "to": new_type,
-                        "saved_bytes": original_memory - new_memory,
-                    }
-
-                    if new_type != original_type:
-                        stats["converted_columns"] += 1
-                        logger.debug(
-                            f"Converted {col} from {original_type} to {new_type}"
-                        )
-
-            except Exception as e:
-                stats["failed_conversions"] += 1
-                logger.warning(f"Failed optimizing column {col}: {str(e)}")
-                optimized_df[col] = col_data
-
-        self._validate_optimization_integrity(df, optimized_df)
-
-        final_memory = optimized_df.memory_usage(deep=True).sum()
-        logger.info(
-            f"Optimized {stats['converted_columns']}/"
-            f"{len(optimized_df.columns)} columns. "
-            f"Memory reduced from {stats['initial_memory']:,} → {final_memory:,} bytes "
-            f"({(stats['initial_memory'] - final_memory)/stats['initial_memory']:.1%})"
-        )
-
-        return optimized_df
+    except UnicodeDecodeError as e:
+        raise SecurityValidationError(f"Encoding error: {str(e)}") from e
 
 
 @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, max=10))
@@ -212,8 +211,8 @@ def load_csv(
         if file_path.stat().st_size > MAX_FILE_SIZE:
             raise SecurityValidationError("File size exceeds maximum allowed limit")
 
-        if file_path.stat().st_size > 1024**3:  # 1GB
-            return _safe_read_csv(file_path, **kwargs)
+        if file_path.stat().st_size < MIN_PARALLEL_SIZE:
+            parallel = False  # Disable parallel for small files
 
         if parallel:
             return _parallel_csv_load(file_path, use_dask, optimizer, **kwargs)
@@ -225,11 +224,6 @@ def load_csv(
 
         chunksize = _calculate_optimal_chunksize(file_path, chunksize)
 
-    except Exception as e:
-        logger.error(f"CSV load failed: {str(e)}")
-        raise DataLoadError(f"Failed to load CSV: {file_path}") from e
-
-    try:
         reader = pd.read_csv(
             file_path,
             dtype=dtype,
@@ -241,22 +235,30 @@ def load_csv(
             **kwargs,
         )
 
-        if chunksize:
-            return _process_chunks(reader, False, file_path, optimizer)
-        return (optimizer or DataOptimizer()).optimize(pd.read_csv(file_path, **kwargs))
+        reader = pd.read_csv(
+            file_path,
+            dtype=dtype,
+            parse_dates=parse_dates,
+            low_memory=low_memory,
+            chunksize=chunksize,
+            on_bad_lines="warn",
+            encoding=encoding,
+            **kwargs,
+        )
+        return _process_chunks(reader, optimizer)
 
     except pd.errors.ParserError as e:
         logger.error(f"CSV parsing error in {file_path.name}: {str(e)}")
         raise DataLoadError(f"CSV parsing failed: {file_path.name}") from e
 
 
-def _safe_read_csv(file_path: Path, **kwargs) -> pd.DataFrame:
-    with open(file_path, "rb") as f:
-        mm = mmap.mmap(f.fileno(), 0, access=mmap.ACCESS_READ)
-        try:
-            return pd.read_csv(mm, **kwargs)
-        finally:
-            mm.close()
+# def _safe_read_csv(file_path: Path, **kwargs) -> pd.DataFrame:
+#     with open(file_path, "rb") as f:
+#         mm = mmap.mmap(f.fileno(), 0, access=mmap.ACCESS_READ)
+#         try:
+#             return pd.read_csv(mm, **kwargs)
+#         finally:
+#             mm.close()
 
 
 def _validate_file_signature(file_path: Path, expected_type: str):
@@ -268,39 +270,22 @@ def _validate_file_signature(file_path: Path, expected_type: str):
         )
 
 
-def _validate_query(query: str):
-    """AST-based SQL validation."""
-    try:
-        parsed = sqlparse.parse(query)
-        for statement in parsed:
-            for token in statement.tokens:
-                if token.ttype in sqlparse.tokens.Keyword.DDL:
-                    raise SecurityValidationError(
-                        f"DDL operation detected: {token.value}"
-                    )
-    except Exception as e:
-        raise SecurityValidationError(f"Query validation failed: {str(e)}")
-
-
 def _parallel_csv_load(
     file_path: Path, use_dask: bool, optimizer: Optional[DataOptimizer], **kwargs
 ) -> pd.DataFrame:
-    """Internal parallel CSV loader."""
-    if use_dask:
-        try:
-            ddf = dd.read_csv(file_path, **kwargs)
-            df = ddf.compute()
-            return (optimizer or DataOptimizer()).optimize(df)
-        except ImportError:
-            logger.warning("Dask not installed, falling back to ThreadPool")
-            return _multiprocess_pandas_load(
-                file_path, pd.read_csv, optimizer, **kwargs
-            )
+    """Internal parallel CSV loader with adaptive chunking."""
+    try:
+        if use_dask:
+            import dask.dataframe as dd
 
-    return _multiprocess_pandas_load(file_path, pd.read_csv, optimizer, **kwargs)
+            return dd.read_csv(file_path, **kwargs).compute()
+    except ImportError:
+        logger.warning("Dask not installed, falling back to ThreadPool")
+
+    return _multiprocess_load(file_path, pd.read_csv, optimizer, **kwargs)
 
 
-def _multiprocess_pandas_load(
+def _multiprocess_load(
     file_path: Path, loader: callable, optimizer: Optional[DataOptimizer], **kwargs
 ) -> pd.DataFrame:
     """Adaptive parallel processing with resource awareness."""
@@ -308,9 +293,8 @@ def _multiprocess_pandas_load(
         with ProcessPoolExecutor(max_workers=MAX_PARALLEL_WORKERS) as executor:
             chunks = list(
                 executor.map(
-                    _process_chunk_wrapper,
+                    loader,
                     _chunked_file_reader(file_path, PARALLEL_CHUNK_SIZE),
-                    [loader] * os.cpu_count(),
                     [kwargs] * os.cpu_count(),
                 )
             )
@@ -323,12 +307,14 @@ def _multiprocess_pandas_load(
                 )
             )
 
-    return pd.concat([optimizer.optimize(chunk) for chunk in chunks], ignore_index=True)
+    return pd.concat(
+        [(optimizer or DataOptimizer()).optimize(chunk) for chunk in chunks]
+    )
 
 
-def _process_chunk_wrapper(chunk, loader, kwargs):
-    """Helper for proper pickle serialization."""
-    return loader(chunk, **kwargs)
+# def _process_chunk_wrapper(chunk, loader, kwargs):
+#     """Helper for proper pickle serialization."""
+#     return loader(chunk, **kwargs)
 
 
 def _chunked_file_reader(file_path: Path, chunksize: int):
@@ -347,6 +333,7 @@ def _chunked_file_reader(file_path: Path, chunksize: int):
             yield pd.read_csv([header] + lines)
 
 
+@retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, max=10))
 def load_excel(
     file_path: Union[str, Path],
     sheet_name: Optional[Union[str, int]] = 0,
@@ -357,6 +344,7 @@ def load_excel(
     file_path = Path(file_path)
     _validate_file(file_path)
     _validate_excel_file(file_path)
+    _validate_file_type
 
     try:
         df = pd.read_excel(file_path, sheet_name=sheet_name, dtype=dtype, **kwargs)
@@ -445,16 +433,25 @@ def load_from_db(
     index_col: Optional[str] = None,
     **kwargs,
 ) -> Union[pd.DataFrame, Iterable[pd.DataFrame]]:
-    """Database loader with parallel execution options."""
+    """Secure database loader with parameterized queries.
+
+    Args:
+        query: SQL query (SELECT only)
+        connection_string: Database connection URI
+        params: Query parameters
+        streaming: Return iterator of chunks
+        chunk_size: Rows per chunk
+        parallel: Enable parallel loading
+        index_col: Index column
+        **kwargs: pandas.read_sql arguments
+
+    Returns:
+        DataFrame or iterator of DataFrames
+    """
     if parallel and index_col:
         return _parallel_db_load(query, connection_string, index_col, **kwargs)
 
     conn_str = connection_string or os.getenv("DB_URI")
-
-    if not conn_str:
-        raise ValueError("Database connection string required")
-
-    _validate_query(query)
 
     pool = ConnectionPool()
     engine = pool.get_engine(conn_str)
@@ -465,6 +462,8 @@ def load_from_db(
 
         with engine.connect() as conn:
             df = pd.read_sql(text(query).bindparams(**(params or {})), conn, **kwargs)
+            if df.empty:
+                logger.warning("Query returned empty result set")
             return optimize_memory(df)
 
     except exc.SQLAlchemyError as e:
@@ -472,28 +471,44 @@ def load_from_db(
         raise DataLoadError(f"Database operation failed: {str(e)}") from e
 
 
-def _calculate_optimal_chunksize(file_path: Path) -> int:
-    """Safe chunk size calculation with bounds."""
-    max_chunk = 10**6  # 1M rows
-    min_chunk = 10**4  # 10k rows
+def _calculate_optimal_chunksize(file_path: Path, user_chunksize: Optional[int]) -> int:
+    """Memory-aware chunk size calculation."""
+    import psutil
+
+    if user_chunksize:
+        return user_chunksize
 
     try:
         file_size = file_path.stat().st_size
         avg_row_size = _estimate_row_size(file_path)
-        chunk_size = max(
-            min(int((MEMORY_SAFETY_FACTOR * file_size) / avg_row_size), max_chunk),
-            min_chunk,
-        )
-        return chunk_size
+        available_mem = psutil.virtual_memory().available if psutil else 4e9
+
+        file_based_chunk = int(file_size / (avg_row_size * os.cpu_count()))
+        memory_based_chunk = int((available_mem * MEMORY_SAFETY_FACTOR) / avg_row_size)
+
+        return min(PARALLEL_CHUNK_SIZE, file_based_chunk, memory_based_chunk)
     except Exception:
         return PARALLEL_CHUNK_SIZE
 
 
 def _estimate_row_size(file_path: Path) -> float:
-    """Estimate average row size in bytes."""
+    """Robust row size estimation using multiple samples."""
+    import random
+
+    sample_points = 5
+    total_bytes = 0
+    total_rows = 0
+
     with open(file_path, "rb") as f:
-        sample = f.read(1024 * 1024)  # 1MB sample
-        return len(sample) / (sample.count(b"\n") + 1)
+        file_size = f.seek(0, 2)
+        for _ in range(sample_points):
+            pos = random.randint(0, file_size - 1024)
+            f.seek(pos)
+            sample = f.read(1024)
+            total_bytes += len(sample)
+            total_rows += sample.count(b"\n")
+
+    return total_bytes / (total_rows or 1)
 
 
 def _parallel_db_load(
@@ -640,28 +655,6 @@ def _validate_excel_file(file_path: Path):
         raise SecurityValidationError("Potentially unsafe Excel file format")
 
 
-def _validate_query(query: str):
-    """SQL injection prevention."""
-    forbidden_patterns = [
-        (";", "Query termination"),
-        ("--", "SQL comment"),
-        ("/*", "Block comment start"),
-        ("*/", "Block comment end"),
-        ("xp_", "Extended procedure"),
-        ("DROP ", "DROP statement"),
-        ("DELETE ", "DELETE statement"),
-        ("INSERT ", "INSERT statement"),
-        ("UPDATE ", "UPDATE statement"),
-        ("TRUNCATE ", "TRUNCATE statement"),
-    ]
-
-    for pattern, description in forbidden_patterns:
-        if pattern.upper() in query.upper():
-            raise SecurityValidationError(
-                f"Potentially dangerous SQL pattern: {description}"
-            )
-
-
 def _calculate_optimal_chunksize(
     file_path: Path, user_chunksize: Optional[int]
 ) -> Optional[int]:
@@ -736,17 +729,20 @@ def _get_db_engine(connection_string: str):
     return _CONNECTION_POOL[connection_string]
 
 
-def _stream_db_results(engine, query, params, chunk_size):
-    """Stream database results server-side."""
+def _stream_db_results(
+    engine: Engine, query: str, params: Optional[Dict], chunk_size: int
+) -> Iterable[pd.DataFrame]:
+    """Server-side result streaming."""
     with engine.connect() as conn:
         result = conn.execution_options(stream_results=True).execute(
-            text(query), params
+            text(query), params or {}
         )
         while True:
             chunk = result.fetchmany(chunk_size)
             if not chunk:
                 break
-            yield pd.DataFrame(chunk, columns=result.keys())
+            df = pd.DataFrame(chunk, columns=result.keys())
+            yield optimize_memory(df)
 
 
 def data_load(
@@ -772,4 +768,8 @@ def data_load(
             f"Unsupported method: {method}. Available: {list(loaders.keys())}"
         )
 
-    return loaders[method](source, **kwargs)
+    try:
+        return loaders[method](source, **kwargs)
+    except Exception as e:
+        logger.error(f"Failed to load {method} data: {str(e)}")
+        raise DataLoadError(f"{method} loading failed") from e
