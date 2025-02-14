@@ -65,17 +65,30 @@ def plot_histogram(
     Returns:
         Tuple[Figure, Axes] if return_figure=True, else None
     """
-    try:
-        plt.figure(figsize=kwargs.get("figsize", (10, 6)))
-        sns.histplot(df[column], **kwargs)
-        plt.title(f"Histogram of {column}")
-        plt.xlabel(column)
-        plt.ylabel("Frequency")
-        plt.show()
-        logger.info(f"Histogram plotted for column: {column}")
-    except Exception as e:
-        logger.error(f"Error plotting histogram for column {column}: {e}")
-        raise
+    validate_dataframe(df)
+    if column not in df.columns:
+        raise ValueError(f"Column '{column}' not found in DataFrame")
+
+    if not pd.api.types.is_numeric_dtype(df[column]):
+        logger.warning(f"Plotting histogram for non-numeric column: {column}")
+
+    figsize = kwargs.pop("figsize", DEFAULT_FIGSIZE)
+    fig, ax = plt.subplots(figsize=figsize) if ax is None else (ax.figure, ax)
+
+    data = df[column]
+    if len(df) > LARGE_DATASET_THRESHOLD:
+        data = data.sample(LARGE_DATASET_THRESHOLD)
+        logger.info(f"Sampled {LARGE_DATASET_THRESHOLD} points for large dataset")
+
+    sns.histplot(data, ax=ax, **{"kde": True, "bins": "auto", **kwargs})
+
+    ax.set_title(f"Histogram of {column}", pad=20)
+    ax.set_xlabel(column, labelpad=15)
+    ax.set_ylabel("Frequency", labelpad=15)
+    plt.tight_layout()
+
+    logger.info(f"Histogram created for column: {column}")
+    return (fig, ax) if return_figure else None
 
 
 def plot_scatter(df: pd.DataFrame, x_column: str, y_column: str, **kwargs):
