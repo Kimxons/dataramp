@@ -17,3 +17,9 @@ class EmptyDataError(DataLoadError):
     """Empty file or query result."""
 
     pass
+
+
+class VisualizationError(Exception):
+    """Custom exception for visualization-related errors."""
+
+    pass
