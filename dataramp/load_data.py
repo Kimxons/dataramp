@@ -252,15 +252,6 @@ def load_csv(
         raise DataLoadError(f"CSV parsing failed: {file_path.name}") from e
 
 
-# def _safe_read_csv(file_path: Path, **kwargs) -> pd.DataFrame:
-#     with open(file_path, "rb") as f:
-#         mm = mmap.mmap(f.fileno(), 0, access=mmap.ACCESS_READ)
-#         try:
-#             return pd.read_csv(mm, **kwargs)
-#         finally:
-#             mm.close()
-
-
 def _validate_file_signature(file_path: Path, expected_type: str):
     """Validate file type using magic numbers."""
     guess = filetype.guess(str(file_path))
