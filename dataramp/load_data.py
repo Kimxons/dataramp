@@ -303,11 +303,6 @@ def _multiprocess_load(
     )
 
 
-# def _process_chunk_wrapper(chunk, loader, kwargs):
-#     """Helper for proper pickle serialization."""
-#     return loader(chunk, **kwargs)
-
-
 def _chunked_file_reader(file_path: Path, chunksize: int):
     """Generate file chunks for parallel processing."""
     with open(file_path, "r") as f:
