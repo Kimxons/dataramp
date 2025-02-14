@@ -5,6 +5,7 @@ Supporting formats: CSV, Excel, JSON, Parquet, Feather, ORC, SQL databases.
 
 import csv
 import logging
+import mmap
 import os
 import pickle
 import threading
@@ -13,12 +14,14 @@ from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
 from pathlib import Path
 from typing import Any, Dict, Iterable, Optional, Union
 
+import filetype
 import numpy as np
 import pandas as pd
 import sqlparse
 from dask import dataframe as dd
 from sqlalchemy import create_engine, exc, text
 from sqlalchemy.engine import Engine
+from tenacity import retry, stop_after_attempt, wait_exponential
 
 from .exceptions import DataLoadError, EmptyDataError, SecurityValidationError
 
@@ -98,187 +101,96 @@ class DataOptimizer:
             logger.warning(f"ML optimizations disabled: {str(e)}")
             return False
 
+    @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, max=10))
     def optimize(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Optimize dataframe memory usage through type inference and conversion.
+        """Optimize dataframe with memory safety checks."""
+        original_memory = df.memory_usage(deep=True).sum()
 
-        Args:
-            df (pd.DataFrame): Input dataframe to optimize
-
-        Returns:
-            pd.DataFrame: Optimized dataframe with reduced memory usage
-        """
-        for col in df.columns:
-            col_data = df[col]
-
-            # Handle datetime detection first
-            if self._is_datetime(col_data):
-                df[col] = pd.to_datetime(col_data)
-                continue
-
-            # Numeric column optimization
-            if pd.api.types.is_numeric_dtype(col_data):
-                df[col] = self._optimize_numeric(col_data)
-
-            # String column optimization
-            elif pd.api.types.is_string_dtype(col_data):
-                df[col] = self._optimize_string(col_data)
-
-        return df
-
-    def _optimize_numeric(self, series: pd.Series) -> pd.Series:
-        """Hybrid numeric optimization strategy.
-
-        Uses ML-based optimization if available, otherwise falls back to basic downcasting.
-        """
-        if self._sklearn_available:
-            return self._ml_optimize_numeric(series)
-        return self._basic_optimize_numeric(series)
-
-    def _ml_optimize_numeric(self, series: pd.Series) -> pd.Series:
-        """ML-enhanced numeric optimization using IsolationForest for outlier detection.
-
-        Args:
-            series (pd.Series): Numeric series to optimize
-
-        Returns:
-            pd.Series: Optimized numeric series
-        """
         try:
-            if series.dropna().empty:
-                return series
-
-            # Detect outliers using IsolationForest
-            from sklearn.ensemble import IsolationForest
-
-            clf = IsolationForest(contamination=0.05, random_state=42)
-            mask = clf.fit_predict(series.values.reshape(-1, 1)) == 1
-            clean_series = series[mask]
-
-            # Integer optimization
-            if np.issubdtype(series.dtype, np.integer):
-                return pd.to_numeric(clean_series, downcast="integer")
-
-            # Float optimization with precision checks
-            downcast = pd.to_numeric(series, downcast="float")
-            if self._precision_loss(downcast, series):
-                return series.astype(f"float{self.type_rules['float_precision']}")
-            return downcast
-
-        except Exception as e:
-            logger.warning(f"ML numeric optimization failed: {str(e)}")
-            return self._basic_optimize_numeric(series)
-
-    def _basic_optimize_numeric(self, series: pd.Series) -> pd.Series:
-        """Basic numeric optimization through simple downcasting.
-
-        Args:
-            series (pd.Series): Numeric series to optimize
-
-        Returns:
-            pd.Series: Downcast numeric series
-        """
-        try:
-            if np.issubdtype(series.dtype, np.integer):
-                return pd.to_numeric(series, downcast="integer")
-            return pd.to_numeric(series, downcast="float")
-        except Exception as e:
-            logger.warning(f"Basic numeric optimization failed: {str(e)}")
-            return series
-
-    def _optimize_string(self, series: pd.Series) -> pd.Series:
-        """Optimize string columns through categorical conversion.
-
-        Args:
-            series (pd.Series): String series to optimize
-
-        Returns:
-            pd.Series: Optimized series (category dtype if appropriate)
-        """
-        try:
-            unique_count = series.nunique()
-            total_count = len(series)
-            unique_ratio = unique_count / total_count
-
-            # Convert to category if under threshold
-            if unique_ratio < self.type_rules["category_threshold"]:
-                return series.astype("category")
-
-            # Check for coded categorical patterns
-            if self._is_categorical_code(series):
-                return series.astype("category")
-
-            return series
-        except Exception as e:
-            logger.warning(f"String optimization failed: {str(e)}")
-            return series
-
-    def _is_datetime(self, series: pd.Series) -> bool:
-        """Detect datetime patterns using multiple common formats.
-
-        Args:
-            series (pd.Series): Series to check for datetime patterns
-
-        Returns:
-            bool: True if datetime pattern detected
-        """
-        date_formats = [
-            "%Y-%m-%d",
-            "%d/%m/%Y",
-            "%m-%d-%Y",
-            "%Y%m%d",
-            "%Y-%m-%d %H:%M:%S",
-            "%d-%b-%y",
-            "%m/%d/%y",
-        ]
-        sample = series.dropna().sample(min(self.sample_size, len(series)))
-
-        for fmt in date_formats:
-            try:
-                pd.to_datetime(sample, format=fmt, errors="raise")
-                return True
-            except (ValueError, TypeError):
-                continue
-        return False
-
-    def _is_categorical_code(self, series: pd.Series) -> bool:
-        """Detect coded categorical patterns using regex.
-
-        Args:
-            series (pd.Series): String series to check
-
-        Returns:
-            bool: True if pattern matches coded categorical
-        """
-        try:
-            sample = series.dropna().sample(min(500, len(series)))
-            pattern = r"^[A-Za-z]+\d+$"
-            match_ratio = sample.str.contains(pattern, regex=True).mean()
-            return match_ratio > 0.8
-        except (ValueError, AttributeError) as e:
-            logger.debug(f"Categorical code detection failed: {str(e)}")
-            return False
-
-    def _precision_loss(self, converted: pd.Series, original: pd.Series) -> bool:
-        """Detect significant precision loss after numeric conversion.
-
-        Args:
-            converted (pd.Series): Downcast series
-            original (pd.Series): Original series
-
-        Returns:
-            bool: True if significant precision loss detected
-        """
-        try:
-            return not np.allclose(
-                converted.astype("float64"),
-                original.astype("float64"),
-                equal_nan=True,
-                atol=1e-5,
+            df = self._optimize_dataframe(df)
+            optimized_memory = df.memory_usage(deep=True).sum()
+            logger.info(
+                f"Memory reduced by {(1 - optimized_memory/original_memory):.1%}"
             )
-        except TypeError:
-            return False
+            return df
+        except Exception as e:
+            logger.error(f"Optimization failed: {str(e)}")
+            return df
+
+    def _optimize_dataframe(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Core dataframe optimization logic with enhanced safety features.
+
+        Args:
+            df: Input dataframe to optimize
+
+        Returns:
+            Optimized pandas DataFrame
+
+        Raises:
+            RuntimeError: If optimization fails critically (caught by retry decorator)
+        """
+        optimized_df = df.copy()
+
+        stats = {
+            "initial_memory": optimized_df.memory_usage(deep=True).sum(),
+            "converted_columns": 0,
+            "failed_conversions": 0,
+            "type_changes": {},
+        }
+
+        for col in optimized_df.columns:
+            col_data = optimized_df[col]
+            original_type = str(col_data.dtype)
+            original_memory = col_data.memory_usage(deep=True)
+
+            try:
+                optimized = False
+
+                if self._is_datetime(col_data):
+                    optimized_df[col] = pd.to_datetime(col_data, errors="coerce")
+                    optimized = True
+                elif pd.api.types.is_numeric_dtype(col_data):
+                    optimized_df[col] = self._optimize_numeric(col_data)
+                    optimized = True
+                elif pd.api.types.is_string_dtype(col_data):
+                    optimized_df[col] = self._optimize_string(col_data)
+                    optimized = True
+
+                if optimized:
+                    new_type = str(optimized_df[col].dtype)
+                    new_memory = optimized_df[col].memory_usage(deep=True)
+
+                    stats["type_changes"][col] = {
+                        "from": original_type,
+                        "to": new_type,
+                        "saved_bytes": original_memory - new_memory,
+                    }
+
+                    if new_type != original_type:
+                        stats["converted_columns"] += 1
+                        logger.debug(
+                            f"Converted {col} from {original_type} to {new_type}"
+                        )
+
+            except Exception as e:
+                stats["failed_conversions"] += 1
+                logger.warning(f"Failed optimizing column {col}: {str(e)}")
+                optimized_df[col] = col_data
+
+        self._validate_optimization_integrity(df, optimized_df)
+
+        final_memory = optimized_df.memory_usage(deep=True).sum()
+        logger.info(
+            f"Optimized {stats['converted_columns']}/"
+            f"{len(optimized_df.columns)} columns. "
+            f"Memory reduced from {stats['initial_memory']:,} → {final_memory:,} bytes "
+            f"({(stats['initial_memory'] - final_memory)/stats['initial_memory']:.1%})"
+        )
+
+        return optimized_df
 
 
+@retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, max=10))
 def load_csv(
     file_path: Union[str, Path],
     low_memory: bool = False,
@@ -294,16 +206,28 @@ def load_csv(
     """Optimized CSV loader with parallel processing options."""
     file_path = Path(file_path)
     _validate_file(file_path)
+    _validate_file_signature(file_path, "csv")
 
-    if parallel:
-        return _parallel_csv_load(file_path, use_dask, optimizer, **kwargs)
+    try:
+        if file_path.stat().st_size > MAX_FILE_SIZE:
+            raise SecurityValidationError("File size exceeds maximum allowed limit")
 
-    if dtype is None:
-        schema = infer_data_schema(file_path, encoding=encoding, **kwargs)
-        dtype = schema["dtypes"]
-        parse_dates = parse_dates or schema.get("parse_dates")
+        if file_path.stat().st_size > 1024**3:  # 1GB
+            return _safe_read_csv(file_path, **kwargs)
 
-    chunksize = _calculate_optimal_chunksize(file_path, chunksize)
+        if parallel:
+            return _parallel_csv_load(file_path, use_dask, optimizer, **kwargs)
+
+        if dtype is None:
+            schema = infer_data_schema(file_path, encoding=encoding, **kwargs)
+            dtype = schema["dtypes"]
+            parse_dates = parse_dates or schema.get("parse_dates")
+
+        chunksize = _calculate_optimal_chunksize(file_path, chunksize)
+
+    except Exception as e:
+        logger.error(f"CSV load failed: {str(e)}")
+        raise DataLoadError(f"Failed to load CSV: {file_path}") from e
 
     try:
         reader = pd.read_csv(
@@ -324,6 +248,38 @@ def load_csv(
     except pd.errors.ParserError as e:
         logger.error(f"CSV parsing error in {file_path.name}: {str(e)}")
         raise DataLoadError(f"CSV parsing failed: {file_path.name}") from e
+
+
+def _safe_read_csv(file_path: Path, **kwargs) -> pd.DataFrame:
+    with open(file_path, "rb") as f:
+        mm = mmap.mmap(f.fileno(), 0, access=mmap.ACCESS_READ)
+        try:
+            return pd.read_csv(mm, **kwargs)
+        finally:
+            mm.close()
+
+
+def _validate_file_signature(file_path: Path, expected_type: str):
+    """Validate file type using magic numbers."""
+    guess = filetype.guess(str(file_path))
+    if not guess or guess.extension != expected_type.lower():
+        raise SecurityValidationError(
+            f"Invalid file type. Expected {expected_type}, got {guess.extension if guess else 'unknown'}"
+        )
+
+
+def _validate_query(query: str):
+    """AST-based SQL validation."""
+    try:
+        parsed = sqlparse.parse(query)
+        for statement in parsed:
+            for token in statement.tokens:
+                if token.ttype in sqlparse.tokens.Keyword.DDL:
+                    raise SecurityValidationError(
+                        f"DDL operation detected: {token.value}"
+                    )
+    except Exception as e:
+        raise SecurityValidationError(f"Query validation failed: {str(e)}")
 
 
 def _parallel_csv_load(
@@ -478,6 +434,7 @@ def load_orc(
         raise DataLoadError("ORC loading failed") from e
 
 
+@retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, max=10))
 def load_from_db(
     query: str,
     connection_string: Optional[str] = None,
@@ -493,12 +450,14 @@ def load_from_db(
         return _parallel_db_load(query, connection_string, index_col, **kwargs)
 
     conn_str = connection_string or os.getenv("DB_URI")
+
     if not conn_str:
         raise ValueError("Database connection string required")
 
     _validate_query(query)
 
-    engine = _get_db_engine(conn_str)
+    pool = ConnectionPool()
+    engine = pool.get_engine(conn_str)
 
     try:
         if streaming:
@@ -511,6 +470,30 @@ def load_from_db(
     except exc.SQLAlchemyError as e:
         logger.error(f"Database error: {str(e)}")
         raise DataLoadError(f"Database operation failed: {str(e)}") from e
+
+
+def _calculate_optimal_chunksize(file_path: Path) -> int:
+    """Safe chunk size calculation with bounds."""
+    max_chunk = 10**6  # 1M rows
+    min_chunk = 10**4  # 10k rows
+
+    try:
+        file_size = file_path.stat().st_size
+        avg_row_size = _estimate_row_size(file_path)
+        chunk_size = max(
+            min(int((MEMORY_SAFETY_FACTOR * file_size) / avg_row_size), max_chunk),
+            min_chunk,
+        )
+        return chunk_size
+    except Exception:
+        return PARALLEL_CHUNK_SIZE
+
+
+def _estimate_row_size(file_path: Path) -> float:
+    """Estimate average row size in bytes."""
+    with open(file_path, "rb") as f:
+        sample = f.read(1024 * 1024)  # 1MB sample
+        return len(sample) / (sample.count(b"\n") + 1)
 
 
 def _parallel_db_load(
