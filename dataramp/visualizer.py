@@ -23,7 +23,7 @@ DEFAULT_FIGSIZE = (10, 6)
 LARGE_DATASET_THRESHOLD = 10_000
 
 
-def validate_dataframe(df: pd.DataFrame) -> None:
+def validate_df(df: pd.DataFrame) -> None:
     """Validate input DataFrame for visualization functions."""
     if not isinstance(df, pd.DataFrame):
         raise TypeError("Input must be a pandas DataFrame")
@@ -66,7 +66,7 @@ def plot_histogram(
     Returns:
         Tuple[Figure, Axes] if return_figure=True, else None
     """
-    validate_dataframe(df)
+    validate_df(df)
     if column not in df.columns:
         raise ValueError(f"Column '{column}' not found in DataFrame")
 
@@ -114,7 +114,7 @@ def plot_scatter(
     Returns:
         Tuple[Figure, Axes] if return_figure=True, else None
     """
-    validate_dataframe(df)
+    validate_df(df)
 
     for col in [x_column, y_column]:
         if col not in df.columns:
@@ -165,7 +165,7 @@ def plot_correlation_matrix(
     Returns:
         Tuple[Figure, Axes] if return_figure=True, else None
     """
-    validate_dataframe(df)
+    validate_df(df)
 
     numeric_df = df.select_dtypes(include=np.number)
     if numeric_df.empty:
