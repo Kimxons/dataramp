@@ -197,33 +197,36 @@ def create_version(
         if compression_level is not None:
             compression_opts["compression_level"] = compression_level
 
-    with atomic_write(data_file) as temp_file:
+    with atomic_write(data_file) as temp_path:
         if method == "protobuf":
             if not hasattr(data, "SerializeToString"):
                 raise ValueError("Data object must be a protobuf message")
-            temp_file.write(data.SerializeToString())
+            with open(temp_path, "wb") as f:
+                f.write(data.SerializeToString())
         elif method == "msgpack":
-            temp_file.write(msgpack.packb(data.to_dict(orient="records")))
+            with open(temp_path, "wb") as f:
+                f.write(msgpack.packb(data.to_dict(orient="records")))
         elif method == "csv":
-            data.to_csv(temp_file, index=False, **compression_opts)
+            data.to_csv(temp_path, index=False, **compression_opts)
         elif method == "parquet":
-            data.to_parquet(temp_file, **compression_opts)
+            data.to_parquet(temp_path, **compression_opts)
         elif method == "feather":
-            data.to_feather(temp_file, compression=compression)
+            data.to_feather(temp_path, compression=compression)
         elif method == "hdf5":
             data.to_hdf(
-                temp_file,
+                temp_path,
                 key="data",
                 mode="w",
                 format="table",
                 **compression_opts,
             )
         elif method == "orc":
-            data.to_orc(temp_file, engine="pyarrow", compression=compression)
+            data.to_orc(temp_path, engine="pyarrow", compression=compression)
         else:
             save_method = getattr(data, f"to_{method}")
-            save_method(temp_file)
+            save_method(temp_path)
 
+    # Save metadata
     version_metadata = {
         "dataset_name": safe_name,
         "author": author or os.getenv("USER", "unknown"),
@@ -241,8 +244,9 @@ def create_version(
     }
 
     metadata_file = version_path / "metadata.json"
-    with atomic_write(metadata_file) as temp_file:
-        json.dump(version_metadata, temp_file, indent=2)
+    with atomic_write(metadata_file) as temp_path:
+        with open(temp_path, "w") as f:
+            json.dump(version_metadata, f, indent=2)
 
     version = DataVersion(
         version_id=version_id,
