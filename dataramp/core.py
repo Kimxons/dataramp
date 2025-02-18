@@ -622,6 +622,9 @@ def data_save(
         Path(get_path("processed_data_path"))
         / f"{name}.{SUPPORTED_DATA_METHODS[method][1]}"
     )
+
+    data_path.parent.mkdir(parents=True, exist_ok=True)
+
     with atomic_write(data_path) as temp_path:
         if method == "csv":
             data.to_csv(temp_path, index=False, compression=compression)
