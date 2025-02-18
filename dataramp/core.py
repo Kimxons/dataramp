@@ -83,8 +83,9 @@ def atomic_write(file_path: Path, mode: str = "w", encoding: str = "utf-8"):
     """Secure atomic file writes with permissions."""
     temp = file_path.with_suffix(".tmp")
     try:
-        with open(temp, mode, encoding=encoding) as file:
-            yield file
+        # with open(temp, mode, encoding=encoding) as file:
+        # yield file
+        yield temp
         os.chmod(temp, 0o600)
         os.replace(
             temp, file_path
