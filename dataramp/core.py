@@ -158,121 +158,109 @@ class DataVersioner:
                     logger.error(f"Invalid version entry {k}: {e}")
             return versions
 
-    def create_version(
-        self,
-        data: Union[pd.DataFrame, pd.Series],
-        name: str,
-        description: str = "",
-        author: Optional[str] = None,
-        version_format: str = "timestamp",
-        metadata: Optional[dict] = None,
-        method: str = "parquet",
-        compression: Optional[str] = None,
-        compression_level: Optional[int] = None,
-    ) -> DataVersion:
-        """Create a new dataset version with enhanced compression options.
 
-        Args:
-            data: The DataFrame or Series to version
-            name: Name of the dataset
-            description: Optional description of this version
-            author: Name of the version creator
-            version_format: Format for version ID ('timestamp', 'hash', or 'increment')
-            metadata: Optional dictionary of additional metadata
-            method: Data storage format ('parquet', 'csv', etc.)
-            compression: Compression codec (e.g., 'gzip', 'snappy', 'zstd')
-            compression_level: Compression level (if supported by codec)
-        """
-        if data is None or data.empty:
-            raise ValueError("Cannot version empty dataset")
+def create_version(
+    self,
+    data: Union[pd.DataFrame, pd.Series],
+    name: str,
+    description: str = "",
+    author: Optional[str] = None,
+    version_format: str = "timestamp",
+    metadata: Optional[dict] = None,
+    method: str = "parquet",
+    compression: Optional[str] = None,
+    compression_level: Optional[int] = None,
+) -> DataVersion:
+    """Create a new dataset version with enhanced compression options."""
+    if data is None or data.empty:
+        raise ValueError("Cannot version empty dataset")
 
-        if compression and compression not in SUPPORTED_COMPRESSION:
-            raise ValueError(f"Unsupported compression codec: {compression}")
+    if compression and compression not in SUPPORTED_COMPRESSION:
+        raise ValueError(f"Unsupported compression codec: {compression}")
 
-        safe_name = PurePath(name).name
-        data_hash = self._calculate_hash(data)
-        version_id = self._generate_version_id(data_hash, version_format, safe_name)
-        version_path = self.base_path / safe_name / version_id
-        version_path.mkdir(parents=True, exist_ok=True)
+    safe_name = PurePath(name).name
+    data_hash = self._calculate_hash(data)
+    version_id = self._generate_version_id(data_hash, version_format, safe_name)
+    version_path = self.base_path / safe_name / version_id
+    version_path.mkdir(parents=True, exist_ok=True)
 
-        if method not in SUPPORTED_DATA_METHODS:
-            raise ValueError(f"Unsupported data format: {method}")
+    if method not in SUPPORTED_DATA_METHODS:
+        raise ValueError(f"Unsupported data format: {method}")
 
-        file_ext = SUPPORTED_DATA_METHODS[method][1]
-        data_file = version_path / f"data.{file_ext}"
+    file_ext = SUPPORTED_DATA_METHODS[method][1]
+    data_file = version_path / f"data.{file_ext}"
 
-        compression_opts = {}
-        if compression:
-            compression_opts["compression"] = compression
-            if compression_level is not None:
-                compression_opts["compression_level"] = compression_level
+    compression_opts = {}
+    if compression:
+        compression_opts["compression"] = compression
+        if compression_level is not None:
+            compression_opts["compression_level"] = compression_level
 
-        with atomic_write(data_file) as temp_file:
-            if method == "protobuf":
-                if not hasattr(data, "SerializeToString"):
-                    raise ValueError("Data object must be a protobuf message")
-                temp_file.write(data.SerializeToString())
-            elif method == "msgpack":
-                temp_file.write(msgpack.packb(data.to_dict(orient="records")))
-            elif method == "csv":
-                data.to_csv(temp_file.name, index=False, **compression_opts)
-            elif method == "parquet":
-                data.to_parquet(temp_file.name, **compression_opts)
-            elif method == "feather":
-                data.to_feather(temp_file.name, compression=compression)
-            elif method == "hdf5":
-                data.to_hdf(
-                    temp_file.name,
-                    key="data",
-                    mode="w",
-                    format="table",
-                    **compression_opts,
-                )
-            elif method == "orc":
-                data.to_orc(temp_file.name, engine="pyarrow", compression=compression)
-            else:
-                save_method = getattr(data, f"to_{method}")
-                save_method(temp_file.name)
+    with atomic_write(data_file) as temp_file:
+        if method == "protobuf":
+            if not hasattr(data, "SerializeToString"):
+                raise ValueError("Data object must be a protobuf message")
+            temp_file.write(data.SerializeToString())
+        elif method == "msgpack":
+            temp_file.write(msgpack.packb(data.to_dict(orient="records")))
+        elif method == "csv":
+            data.to_csv(temp_file, index=False, **compression_opts)
+        elif method == "parquet":
+            data.to_parquet(temp_file, **compression_opts)
+        elif method == "feather":
+            data.to_feather(temp_file, compression=compression)
+        elif method == "hdf5":
+            data.to_hdf(
+                temp_file,
+                key="data",
+                mode="w",
+                format="table",
+                **compression_opts,
+            )
+        elif method == "orc":
+            data.to_orc(temp_file, engine="pyarrow", compression=compression)
+        else:
+            save_method = getattr(data, f"to_{method}")
+            save_method(temp_file)
 
-        version_metadata = {
-            "dataset_name": safe_name,
-            "author": author or os.getenv("USER", "unknown"),
-            "created": datetime.now().isoformat(),
-            "description": description,
-            "columns": (
-                list(data.columns) if isinstance(data, pd.DataFrame) else [data.name]
-            ),
-            "shape": data.shape,
-            "data_hash": data_hash,
-            "custom": metadata or {},
-            "compression": compression,
-            "compression_level": compression_level,
-            "format": method,
-        }
+    version_metadata = {
+        "dataset_name": safe_name,
+        "author": author or os.getenv("USER", "unknown"),
+        "created": datetime.now().isoformat(),
+        "description": description,
+        "columns": (
+            list(data.columns) if isinstance(data, pd.DataFrame) else [data.name]
+        ),
+        "shape": data.shape,
+        "data_hash": data_hash,
+        "custom": metadata or {},
+        "compression": compression,
+        "compression_level": compression_level,
+        "format": method,
+    }
 
-        metadata_file = version_path / "metadata.json"
-        with atomic_write(metadata_file) as temp_path:
-            with open(temp_path, "w") as f:
-                json.dump(version_metadata, f, indent=2)
+    metadata_file = version_path / "metadata.json"
+    with atomic_write(metadata_file) as temp_file:
+        json.dump(version_metadata, temp_file, indent=2)
 
-        version = DataVersion(
-            version_id=version_id,
-            timestamp=version_metadata["created"],
-            description=description,
-            author=version_metadata["author"],
-            data_hash=data_hash,
-            file_path=data_file,
-            metadata=version_metadata,
-            dataset_name=safe_name,
-            compression=compression,
-        )
+    version = DataVersion(
+        version_id=version_id,
+        timestamp=version_metadata["created"],
+        description=description,
+        author=version_metadata["author"],
+        data_hash=data_hash,
+        file_path=data_file,
+        metadata=version_metadata,
+        dataset_name=safe_name,
+        compression=compression,
+    )
 
-        with fasteners.InterProcessLock(self.lock_file):
-            self.versions = self._load_history()
-            self.versions[version_id] = version
-            self._save_history()
-        logger.info(f"Created version {version_id} of dataset {safe_name}")
-        return version
+    with fasteners.InterProcessLock(self.lock_file):
+        self.versions = self._load_history()
+        self.versions[version_id] = version
+        self._save_history()
+    logger.info(f"Created version {version_id} of dataset {safe_name}")
+    return version
 
     def _save_history(self):
         """Save version history with atomic write."""
