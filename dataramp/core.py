@@ -723,7 +723,6 @@ def data_save(
         raise ValueError(f"Unsupported format: {method}")
 
     if versioning:
-        # Save the dataset in the versions folder
         versioner = DataVersioner()
         return versioner.create_version(
             data, name, method=method, compression=compression, **version_kwargs
