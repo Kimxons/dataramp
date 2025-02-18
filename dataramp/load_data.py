@@ -5,7 +5,6 @@ Supporting formats: CSV, Excel, JSON, Parquet, Feather, ORC, SQL databases.
 
 import csv
 import logging
-import mmap
 import os
 import pickle
 import threading
@@ -17,8 +16,6 @@ from typing import Any, Dict, Iterable, Optional, Union
 import filetype
 import numpy as np
 import pandas as pd
-import sqlparse
-from dask import dataframe as dd
 from sqlalchemy import create_engine, exc, text
 from sqlalchemy.engine import Engine
 from tenacity import retry, stop_after_attempt, wait_exponential
