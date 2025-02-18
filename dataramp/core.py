@@ -722,26 +722,26 @@ def data_save(
     if method not in SUPPORTED_DATA_METHODS:
         raise ValueError(f"Unsupported format: {method}")
 
+    data_path = (
+        Path(get_path("processed_data_path"))
+        / f"{name}.{SUPPORTED_DATA_METHODS[method][1]}"
+    )
+    with atomic_write(data_path) as temp_path:
+        if method == "csv":
+            data.to_csv(temp_path, index=False, compression=compression)
+        elif method == "parquet":
+            data.to_parquet(temp_path, compression=compression)
+        elif method == "feather":
+            data.to_feather(temp_path, compression=compression)
+        else:
+            raise ValueError(f"Unsupported method: {method}")
+
     if versioning:
         versioner = DataVersioner()
         return versioner.create_version(
             data, name, method=method, compression=compression, **version_kwargs
         )
-    else:
-        data_path = (
-            Path(get_path("processed_data_path"))
-            / f"{name}.{SUPPORTED_DATA_METHODS[method][1]}"
-        )
-        with atomic_write(data_path) as temp_path:
-            if method == "csv":
-                data.to_csv(temp_path, index=False, compression=compression)
-            elif method == "parquet":
-                data.to_parquet(temp_path, compression=compression)
-            elif method == "feather":
-                data.to_feather(temp_path, compression=compression)
-            else:
-                raise ValueError(f"Unsupported method: {method}")
-        return data_path
+    return data_path
 
 
 def update_dependencies(requirements_file: str = "requirements.txt"):
