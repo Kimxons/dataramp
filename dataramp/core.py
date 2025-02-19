@@ -98,17 +98,6 @@ def atomic_write(file_path: Path, mode: str = "w", encoding: str = "utf-8"):
                 pass
 
 
-import json
-import os
-from dataclasses import dataclass
-from datetime import datetime
-from pathlib import Path
-from typing import Dict, Optional, Union
-
-import fasteners
-import pandas as pd
-
-
 @dataclass
 class DataVersion:
     """Class representing a version of a dataset."""
