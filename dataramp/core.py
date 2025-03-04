@@ -98,20 +98,6 @@ def atomic_write(file_path: Path, mode: str = "w", encoding: str = "utf-8"):
                 pass
 
 
-@dataclass
-class DataVersion:
-    """Class representing a version of a dataset."""
-
-    version_id: str
-    author: str
-    data_hash: str
-    timestamp: str
-    description: str
-    file_path: Path
-    metadata: dict
-    dataset_name: str
-
-
 class DataVersioner:
     """Manager for dataset versions with metadata tracking and integrity checks."""
 
