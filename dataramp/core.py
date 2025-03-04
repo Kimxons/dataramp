@@ -35,9 +35,11 @@ DISABLE_PICKLE = os.getenv("DISABLE_PICKLE", "false").lower() == "true"
 
 SUPPORTED_MODEL_METHODS = {
     "joblib": (jb.dump, "joblib"),
-    "pickle": (pk.dump, "pkl") if not DISABLE_PICKLE else None,
     "msgpack": (msgpack.packb, "msgpack"),
 }
+if not DISABLE_PICKLE:
+    SUPPORTED_MODEL_METHODS["pickle"] = (pk.dump, "pkl")
+
 SUPPORTED_DATA_METHODS = {
     "parquet": (pd.DataFrame.to_parquet, "parquet"),
     "feather": (pd.DataFrame.to_feather, "feather"),
