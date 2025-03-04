@@ -18,7 +18,7 @@ from functools import lru_cache
 from importlib.metadata import PackageNotFoundError
 from importlib.metadata import version as pkg_version
 from pathlib import Path, PurePath
-from typing import Dict, List, Optional, Tuple, Union
+from typing import IO, Any, Dict, Generator, List, Optional, Tuple, Union
 
 import fasteners
 import google.protobuf.json_format as protobuf_json
@@ -81,14 +81,16 @@ class DataVersion:
 
 
 @contextmanager
-def atomic_write(file_path: Path, mode: str = "w", encoding: str = "utf-8"):
+def atomic_write(
+    file_path: Path, mode: str = "w", encoding: str = "utf-8"
+) -> Generator[IO, Any, None]:
     """Secure atomic file writes with permissions."""
     temp = file_path.with_suffix(".tmp")
     try:
         with open(temp, mode, encoding=encoding) as file:
             yield file
             # yield temp
-            os.chmod(temp, 0o600)
+            os.chmod(temp, 0o600)  # Read/Write only for owner.
             os.replace(temp, file_path)
     finally:
         if temp.exists():
@@ -201,8 +203,10 @@ class DataVersioner:
 
     def _calculate_hash(self, data: Union[pd.DataFrame, pd.Series]) -> str:
         """Calculate a hash for the dataset."""
-        return hashlib.sha256(
-            pd.util.hash_pandas_object(data).values.tobytes()
+        return hashlib.sha3_256(
+            pd.util.hash_pandas_object(data, index=True).values.tobytes()
+            + str(data.dtypes).encode()
+            + str(data.columns).encode()
         ).hexdigest()
 
     def _generate_version_id(
@@ -625,7 +629,7 @@ def model_save(
             dump_method = method_info[0]
             if method == "joblib":
                 dump_method(model, temp_path, compress=compression)
-            elif method == "pickle":
+            elif method == "pickle" and not DISABLE_PICKLE:
                 if compression:
                     raise ValueError("Pickle doesn't support compression")
                 dump_method(model, temp_path)
