@@ -83,13 +83,11 @@ def atomic_write(file_path: Path, mode: str = "w", encoding: str = "utf-8"):
     """Secure atomic file writes with permissions."""
     temp = file_path.with_suffix(".tmp")
     try:
-        # with open(temp, mode, encoding=encoding) as file:
-        # yield file
-        yield temp
-        os.chmod(temp, 0o600)
-        os.replace(
-            temp, file_path
-        )  # conflicted between replace and rename (replace is more atomic than rename on Windows)
+        with open(temp, mode, encoding=encoding) as file:
+            yield file
+            # yield temp
+            os.chmod(temp, 0o600)
+            os.replace(temp, file_path)
     finally:
         if temp.exists():
             try:
@@ -227,19 +225,6 @@ class DataVersioner:
             history = json.load(f)
         return {k: DataVersion(**v) for k, v in history.items()}
 
-    def _save_history(self):
-        """Save version history to the history file."""
-        with atomic_write(self.history_file) as temp_path:
-            with open(temp_path, "w") as f:
-                history = {
-                    k: {
-                        key: str(value) if isinstance(value, Path) else value
-                        for key, value in vars(v).items()
-                    }
-                    for k, v in self.versions.items()
-                }
-            json.dump(history, f, indent=2)
-
 
 def create_version(
     self,
@@ -353,15 +338,17 @@ def create_version(
     return version
 
     def _save_history(self):
-        """Save version history with atomic write."""
+        """Save version history to the history file."""
         with atomic_write(self.history_file) as temp_path:
             with open(temp_path, "w") as f:
-                json.dump(
-                    {k: vars(v) for k, v in self.versions.items()},
-                    f,
-                    indent=2,
-                    default=str,
-                )
+                history = {
+                    k: {
+                        key: str(value) if isinstance(value, Path) else value
+                        for key, value in vars(v).items()
+                    }
+                    for k, v in self.versions.items()
+                }
+            json.dump(history, f, indent=2)
 
     def _calculate_hash(
         self,
