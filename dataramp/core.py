@@ -78,6 +78,7 @@ class DataVersion:
     file_path: Path
     metadata: dict
     dataset_name: str
+    compression: Optional[str] = None
 
 
 @contextmanager
@@ -101,7 +102,18 @@ def atomic_write(
 
 
 class DataVersioner:
-    """Manager for dataset versions with metadata tracking and integrity checks."""
+    """Manager for dataset versions with metadata tracking.
+
+    Features:
+    - Automatic content hashing
+    - Multiple serialization formats
+    - Atomic file operations
+    - Concurrent access safety
+
+    Example:
+    >>> versioner = DataVersioner()
+    >>> version = versioner.create_version(df, "sales_data")
+    """
 
     def __init__(self, base_path: Optional[Path] = None):
         """Initialize the DataVersioner."""
@@ -569,24 +581,24 @@ def _generate_requirements_file(project_path: Path):
 def _generate_environment_file(project_path: Path):
     """Generate environment.yml for Conda users."""
     environment_content = """name: data_science_env
-channels:
-  - conda-forge
-  - defaults
-dependencies:
-  - python>=3.8
-  - pandas>=1.3.0
-  - numpy>=1.21.0
-  - scikit-learn>=1.0.0
-  - joblib>=1.1.0
-  - pyarrow>=6.0.0  # Parquet support
-  - pip
-  # Optional dependencies
-  # - matplotlib>=3.5.0
-  # - seaborn>=0.11.2
-  - pip:
-    # Add pip-only packages here
-    # - package>=1.0.0
-"""
+    channels:
+    - conda-forge
+    - defaults
+    dependencies:
+    - python>=3.8
+    - pandas>=1.3.0
+    - numpy>=1.21.0
+    - scikit-learn>=1.0.0
+    - joblib>=1.1.0
+    - pyarrow>=6.0.0  # Parquet support
+    - pip
+    # Optional dependencies
+    # - matplotlib>=3.5.0
+    # - seaborn>=0.11.2
+    - pip:
+        # Add pip-only packages here
+        # - package>=1.0.0
+    """
     environment_path = project_path / "environment.yml"
     with atomic_write(environment_path) as temp_path:
         temp_path.write(environment_content)
