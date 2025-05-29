@@ -1,0 +1,336 @@
+"""Module for training and evaluating machine learning models.
+
+This module provides functions for training and evaluating various machine learning models,
+including linear regression, random forest, and logistic regression. It includes utilities
+for model evaluation, metrics calculation, and visualization.
+"""
+import logging
+from typing import Any, Dict, Optional, Union
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+from sklearn.base import BaseEstimator, is_classifier, is_regressor
+from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
+from sklearn.linear_model import LinearRegression, LogisticRegression
+from sklearn.metrics import classification_report, confusion_matrix, mean_squared_error, r2_score, roc_auc_score, roc_curve
+_7f9f_88ad9f74f10dd7d5._7f9f_6b41bf637845601a(level=_7f9f_88ad9f74f10dd7d5_
+    ._7f9f_4eb51d0fbee0f18e, format='%(asctime)s %(levelname)s %(message)s')
+_7f9f_6c48821b6fad0f6c = _7f9f_88ad9f74f10dd7d5_._7f9f_e36536749def17bc(
+    _7f9f_aa8a0b8f50aa8e28)
+
+
+def _7f9f_d0c1d38b8962b3a0(model: _7f9f_9e7629ab94677138, X:
+    _7f9f_8231a1985cd5ab62._7f9f_10cd467a579395b7, y:
+    _7f9f_8231a1985cd5ab62_._7f9f_8b964d43ac3e59ae, model_name:
+    _7f9f_aeb5de20ef7f1135, **fit_kwargs: _7f9f_1a19d69a7a2ed064[
+    _7f9f_aeb5de20ef7f1135_, _7f9f_86ccf37859922e46]
+    ) ->_7f9f_9e7629ab94677138_:
+    """Train a machine learning model.
+
+    Args:
+        model: The model to train.
+        X: Training features.
+        y: Training labels.
+        model_name: Name of the model (for logging purposes).
+        **fit_kwargs: Additional keyword arguments to pass to the model's `fit` method.
+
+    Returns:
+        The trained model.
+
+    Raises:
+        ValueError: If the input data is invalid.
+        RuntimeError: If the model training fails.
+    """
+    if (_7f9f_1c530a4313ca187e._7f9f_b3d7e7eda8472645 or
+        _7f9f_03d8ffd8a4728f33._7f9f_b3d7e7eda8472645_):
+        raise _7f9f_e43cd782dea1c033('Input data (X or y) is empty.')
+    try:
+        _7f9f_6c48821b6fad0f6c_._7f9f_7cc1cd570bcec4a0(
+            f'Training {_7f9f_be7b3fc546d1c3a0} model...')
+        _7f9f_fadd776fb402a9a2._7f9f_ef77d429072693bc(_7f9f_1c530a4313ca187e_,
+            _7f9f_03d8ffd8a4728f33_, **_7f9f_f3ed5a757504ee7f)
+        _7f9f_6c48821b6fad0f6c_._7f9f_7cc1cd570bcec4a0_(
+            f'{_7f9f_be7b3fc546d1c3a0_} model trained successfully.')
+        return _7f9f_fadd776fb402a9a2_
+    except _7f9f_28039ffec0079fc9 as e:
+        _7f9f_6c48821b6fad0f6c_._7f9f_46194ff3af7ba5ce(
+            f'Error training {_7f9f_be7b3fc546d1c3a0_} model: {_7f9f_dcbc9e80db37d740}'
+            )
+        raise _7f9f_b70ebcbf49e32ddd(
+            f'Failed to train {_7f9f_be7b3fc546d1c3a0_} model: {_7f9f_dcbc9e80db37d740_}'
+            )
+
+
+def _7f9f_c30b1f3042667702(model: _7f9f_9e7629ab94677138_, X:
+    _7f9f_8231a1985cd5ab62_._7f9f_10cd467a579395b7_, y:
+    _7f9f_8231a1985cd5ab62_._7f9f_8b964d43ac3e59ae_, model_type:
+    _7f9f_aeb5de20ef7f1135_='classifier', plot: _7f9f_108be05d3d357f94=True,
+    save_plot: _7f9f_18d919f9f312b5d3[_7f9f_aeb5de20ef7f1135_]=None
+    ) ->_7f9f_1a19d69a7a2ed064_[_7f9f_aeb5de20ef7f1135_,
+    _7f9f_2aa55a7e8d7deab1[_7f9f_1a19d69a7a2ed064_[_7f9f_aeb5de20ef7f1135_,
+    _7f9f_239b4acaa9889556], _7f9f_20f094ece60aee9d_._7f9f_ac4efc91177b2a90,
+    _7f9f_239b4acaa9889556_]]:
+    """Evaluate a machine learning model.
+
+    Args:
+        model: The trained model.
+        X: Validation features.
+        y: Validation labels.
+        model_type: Type of model ('classifier' or 'regressor').
+        plot: Whether to generate plots (default: True).
+        save_plot: Path to save the plot (optional).
+
+    Returns:
+        Dictionary containing evaluation results.
+
+    Raises:
+        ValueError: If model_type is invalid or mismatched with the model.
+    """
+    if _7f9f_5772a202cb059f58 not in ['classifier', 'regressor']:
+        raise _7f9f_e43cd782dea1c033_(
+            "model_type must be 'classifier' or 'regressor'.")
+    if _7f9f_5772a202cb059f58_ == 'classifier' and not _7f9f_35882dcb970e22e8(
+        _7f9f_fadd776fb402a9a2_):
+        raise _7f9f_e43cd782dea1c033_('The provided model is not a classifier.'
+            )
+    elif _7f9f_5772a202cb059f58_ == 'regressor' and not _7f9f_110b37b4113b0a54(
+        _7f9f_fadd776fb402a9a2_):
+        raise _7f9f_e43cd782dea1c033_('The provided model is not a regressor.')
+    _7f9f_1871a793c5531bab = {}
+    _7f9f_c0583f0c210f7138 = _7f9f_03d8ffd8a4728f33_._7f9f_d2e9f16b03559367(
+        ) if _7f9f_4df46be9e732b07f(_7f9f_03d8ffd8a4728f33_,
+        _7f9f_8231a1985cd5ab62_._7f9f_8b964d43ac3e59ae_
+        ) else _7f9f_03d8ffd8a4728f33_
+    _7f9f_3915b6d44403290c = _7f9f_fadd776fb402a9a2_._7f9f_8adf2b665fb181cb(
+        _7f9f_1c530a4313ca187e_)
+    if _7f9f_5772a202cb059f58_ == 'classifier':
+        _7f9f_1871a793c5531bab_['classification_report'
+            ] = _7f9f_db5cd61577d4fceb(_7f9f_c0583f0c210f7138_,
+            _7f9f_3915b6d44403290c_, output_dict=True)
+        _7f9f_1871a793c5531bab_['confusion_matrix'] = _7f9f_45fa71fe7772740c(
+            _7f9f_c0583f0c210f7138_, _7f9f_3915b6d44403290c_)
+        _7f9f_6c48821b6fad0f6c_._7f9f_7cc1cd570bcec4a0_(
+            'Classification Report:')
+        _7f9f_6c48821b6fad0f6c_._7f9f_7cc1cd570bcec4a0_(_7f9f_db5cd61577d4fceb_
+            (_7f9f_c0583f0c210f7138_, _7f9f_3915b6d44403290c_))
+        _7f9f_6c48821b6fad0f6c_._7f9f_7cc1cd570bcec4a0_('Confusion Matrix:')
+        _7f9f_6c48821b6fad0f6c_._7f9f_7cc1cd570bcec4a0_(_7f9f_45fa71fe7772740c_
+            (_7f9f_c0583f0c210f7138_, _7f9f_3915b6d44403290c_))
+        if _7f9f_120953fa162f3f0e and _7f9f_9dc5bc9ddc5fbbfb(
+            _7f9f_fadd776fb402a9a2_, 'predict_proba'
+            ) and _7f9f_192c8bf1353a9281(_7f9f_20f094ece60aee9d.
+            _7f9f_71394b48deb24f20(_7f9f_c0583f0c210f7138_)) == 2:
+            _7f9f_6c48821b6fad0f6c_._7f9f_7cc1cd570bcec4a0_(
+                'Generating ROC curve...')
+            _7f9f_b990c9bacd27bf04 = (_7f9f_fadd776fb402a9a2_.
+                _7f9f_c6a2461c7c3a4097(_7f9f_1c530a4313ca187e_)[:, 1])
+            (_7f9f_d72cbaa43ac0ab2e, _7f9f_d6c94a035797f61f,
+                _7f9f_0e4a039b2c632f1f) = (_7f9f_6a76b2c28d2868d1(
+                _7f9f_c0583f0c210f7138_, _7f9f_b990c9bacd27bf04_))
+            _7f9f_71217d78451581dc = _7f9f_8054bf0f249c90b3(
+                _7f9f_c0583f0c210f7138_, _7f9f_b990c9bacd27bf04_)
+            _7f9f_2316f99139e43050._7f9f_b720c2182bb1e91e()
+            _7f9f_2316f99139e43050_._7f9f_120953fa162f3f0e_(
+                _7f9f_d72cbaa43ac0ab2e_, _7f9f_d6c94a035797f61f_, color=
+                'darkorange', label=
+                f'ROC curve (AUC = {_7f9f_71217d78451581dc_:.2f})')
+            _7f9f_2316f99139e43050_._7f9f_120953fa162f3f0e_([0, 1], [0, 1],
+                color='navy', linestyle='--')
+            _7f9f_2316f99139e43050_._7f9f_27fb9b6bdfeb32ae(
+                'False Positive Rate')
+            _7f9f_2316f99139e43050_._7f9f_8192b3af41672f43('True Positive Rate'
+                )
+            _7f9f_2316f99139e43050_._7f9f_0070a89ac2b85125(
+                'Receiver Operating Characteristic Curve')
+            _7f9f_2316f99139e43050_._7f9f_b32ed1bd0c666d5b()
+            if _7f9f_0989037add94b6dc:
+                _7f9f_2316f99139e43050_._7f9f_f8209efe1b1cbe0c(
+                    _7f9f_0989037add94b6dc_)
+                _7f9f_2316f99139e43050_._7f9f_0ada758eecba6507()
+            else:
+                _7f9f_2316f99139e43050_._7f9f_48ddfa2794144681()
+            _7f9f_1871a793c5531bab_['roc_auc'] = _7f9f_71217d78451581dc_
+    elif _7f9f_5772a202cb059f58_ == 'regressor':
+        _7f9f_1871a793c5531bab_['mse'] = _7f9f_a6284249df0b7dbf(
+            _7f9f_c0583f0c210f7138_, _7f9f_3915b6d44403290c_)
+        _7f9f_1871a793c5531bab_['r2'] = _7f9f_f936ba6b25c411af(
+            _7f9f_c0583f0c210f7138_, _7f9f_3915b6d44403290c_)
+        _7f9f_6c48821b6fad0f6c_._7f9f_7cc1cd570bcec4a0_(
+            f"MSE: {_7f9f_1871a793c5531bab_['mse']:.4f}")
+        _7f9f_6c48821b6fad0f6c_._7f9f_7cc1cd570bcec4a0_(
+            f"R2: {_7f9f_1871a793c5531bab_['r2']:.4f}")
+        if _7f9f_120953fa162f3f0e_:
+            _7f9f_6c48821b6fad0f6c_._7f9f_7cc1cd570bcec4a0_(
+                'Generating residual plot...')
+            _7f9f_9fc34ba9efeeae6b = (_7f9f_c0583f0c210f7138_ -
+                _7f9f_3915b6d44403290c_)
+            _7f9f_2316f99139e43050_._7f9f_b720c2182bb1e91e_()
+            _7f9f_2316f99139e43050_._7f9f_ae5271e9a4f19785(
+                _7f9f_3915b6d44403290c_, _7f9f_9fc34ba9efeeae6b_, color=
+                'blue', alpha=0.5)
+            _7f9f_2316f99139e43050_._7f9f_dc71f190ad54ce22(y=0, color='red',
+                linestyle='--')
+            _7f9f_2316f99139e43050_._7f9f_27fb9b6bdfeb32ae_('Predicted Values')
+            _7f9f_2316f99139e43050_._7f9f_8192b3af41672f43_('Residuals')
+            _7f9f_2316f99139e43050_._7f9f_0070a89ac2b85125_('Residual Plot')
+            if _7f9f_0989037add94b6dc_:
+                _7f9f_2316f99139e43050_._7f9f_f8209efe1b1cbe0c_(
+                    _7f9f_0989037add94b6dc_)
+                _7f9f_2316f99139e43050_._7f9f_0ada758eecba6507_()
+            else:
+                _7f9f_2316f99139e43050_._7f9f_48ddfa2794144681_()
+    return _7f9f_1871a793c5531bab_
+
+
+def _7f9f_5bb41831f19bea47(X: _7f9f_8231a1985cd5ab62_.
+    _7f9f_10cd467a579395b7_, y: _7f9f_8231a1985cd5ab62_.
+    _7f9f_8b964d43ac3e59ae_, X_val: _7f9f_18d919f9f312b5d3_[
+    _7f9f_8231a1985cd5ab62_._7f9f_10cd467a579395b7_]=None, y_val:
+    _7f9f_18d919f9f312b5d3_[_7f9f_8231a1985cd5ab62_._7f9f_8b964d43ac3e59ae_
+    ]=None, plot: _7f9f_108be05d3d357f94_=True, save_plot:
+    _7f9f_18d919f9f312b5d3_[_7f9f_aeb5de20ef7f1135_]=None, model_kwargs:
+    _7f9f_18d919f9f312b5d3_[_7f9f_1a19d69a7a2ed064_[_7f9f_aeb5de20ef7f1135_,
+    _7f9f_86ccf37859922e46_]]=None, **fit_kwargs: _7f9f_1a19d69a7a2ed064_[
+    _7f9f_aeb5de20ef7f1135_, _7f9f_86ccf37859922e46_]
+    ) ->_7f9f_1a19d69a7a2ed064_[_7f9f_aeb5de20ef7f1135_,
+    _7f9f_2aa55a7e8d7deab1_[_7f9f_1a19d69a7a2ed064_[_7f9f_aeb5de20ef7f1135_,
+    _7f9f_239b4acaa9889556_], _7f9f_20f094ece60aee9d_.
+    _7f9f_ac4efc91177b2a90_, _7f9f_239b4acaa9889556_, _7f9f_9e7629ab94677138_]
+    ]:
+    """Train and evaluate a linear regression model.
+
+    Args:
+        X: Training features.
+        y: Training labels.
+        X_val: Validation features (optional).
+        y_val: Validation labels (optional).
+        plot: Whether to generate plots (default: True).
+        save_plot: Path to save the plot (optional).
+        model_kwargs: Keyword arguments for model initialization.
+        **fit_kwargs: Additional keyword arguments to pass to the model's `fit` method.
+
+    Returns:
+        Dictionary containing training and evaluation results.
+    """
+    _7f9f_1c534751aab3ca3b = _7f9f_1c534751aab3ca3b_ or {}
+    _7f9f_fadd776fb402a9a2_ = _7f9f_a9c3be0ef506a138(**_7f9f_1c534751aab3ca3b_)
+    _7f9f_fadd776fb402a9a2_ = _7f9f_d0c1d38b8962b3a0_(_7f9f_fadd776fb402a9a2_,
+        _7f9f_1c530a4313ca187e_, _7f9f_03d8ffd8a4728f33_,
+        'linear regression', **_7f9f_f3ed5a757504ee7f_)
+    _7f9f_1871a793c5531bab_ = {'model': _7f9f_fadd776fb402a9a2_}
+    if (_7f9f_2587756f3fb1dfa3 is not None and _7f9f_b4e534db27c56f79 is not
+        None):
+        _7f9f_94863fe89e264467 = _7f9f_c30b1f3042667702_(
+            _7f9f_fadd776fb402a9a2_, _7f9f_2587756f3fb1dfa3_,
+            _7f9f_b4e534db27c56f79_, model_type='regressor', plot=
+            _7f9f_120953fa162f3f0e_, save_plot=_7f9f_0989037add94b6dc_)
+        _7f9f_1871a793c5531bab_._7f9f_a046509f1dbe33a1(_7f9f_94863fe89e264467_)
+    return _7f9f_1871a793c5531bab_
+
+
+def _7f9f_cb67409edd31cec5(X: _7f9f_8231a1985cd5ab62_.
+    _7f9f_10cd467a579395b7_, y: _7f9f_8231a1985cd5ab62_.
+    _7f9f_8b964d43ac3e59ae_, X_val: _7f9f_18d919f9f312b5d3_[
+    _7f9f_8231a1985cd5ab62_._7f9f_10cd467a579395b7_]=None, y_val:
+    _7f9f_18d919f9f312b5d3_[_7f9f_8231a1985cd5ab62_._7f9f_8b964d43ac3e59ae_
+    ]=None, model_type: _7f9f_aeb5de20ef7f1135_='classifier', plot:
+    _7f9f_108be05d3d357f94_=True, save_plot: _7f9f_18d919f9f312b5d3_[
+    _7f9f_aeb5de20ef7f1135_]=None, model_kwargs: _7f9f_18d919f9f312b5d3_[
+    _7f9f_1a19d69a7a2ed064_[_7f9f_aeb5de20ef7f1135_,
+    _7f9f_86ccf37859922e46_]]=None, **fit_kwargs: _7f9f_1a19d69a7a2ed064_[
+    _7f9f_aeb5de20ef7f1135_, _7f9f_86ccf37859922e46_]
+    ) ->_7f9f_1a19d69a7a2ed064_[_7f9f_aeb5de20ef7f1135_,
+    _7f9f_2aa55a7e8d7deab1_[_7f9f_1a19d69a7a2ed064_[_7f9f_aeb5de20ef7f1135_,
+    _7f9f_239b4acaa9889556_], _7f9f_20f094ece60aee9d_.
+    _7f9f_ac4efc91177b2a90_, _7f9f_239b4acaa9889556_, _7f9f_9e7629ab94677138_]
+    ]:
+    """Train and evaluate a random forest model.
+
+    Args:
+        X: Training features.
+        y: Training labels.
+        X_val: Validation features (optional).
+        y_val: Validation labels (optional).
+        model_type: Type of model ('classifier' or 'regressor').
+        plot: Whether to generate plots (default: True).
+        save_plot: Path to save the plot (optional).
+        model_kwargs: Keyword arguments for model initialization.
+        **fit_kwargs: Additional keyword arguments to pass to the model's `fit` method.
+
+    Returns:
+        Dictionary containing training and evaluation results.
+    """
+    _7f9f_1c534751aab3ca3b_ = _7f9f_1c534751aab3ca3b_ or {}
+    if _7f9f_5772a202cb059f58_ == 'classifier':
+        _7f9f_fadd776fb402a9a2_ = _7f9f_4a31373654ffcdcb(**
+            _7f9f_1c534751aab3ca3b_)
+    elif _7f9f_5772a202cb059f58_ == 'regressor':
+        _7f9f_fadd776fb402a9a2_ = _7f9f_11dc2a8371b77e0d(**
+            _7f9f_1c534751aab3ca3b_)
+    else:
+        raise _7f9f_e43cd782dea1c033_(
+            "Invalid model_type. Choose 'classifier' or 'regressor'.")
+    _7f9f_fadd776fb402a9a2_ = _7f9f_d0c1d38b8962b3a0_(_7f9f_fadd776fb402a9a2_,
+        _7f9f_1c530a4313ca187e_, _7f9f_03d8ffd8a4728f33_, 'random forest',
+        **_7f9f_f3ed5a757504ee7f_)
+    _7f9f_1871a793c5531bab_ = {'model': _7f9f_fadd776fb402a9a2_}
+    if (_7f9f_2587756f3fb1dfa3_ is not None and _7f9f_b4e534db27c56f79_ is not
+        None):
+        _7f9f_94863fe89e264467_ = _7f9f_c30b1f3042667702_(
+            _7f9f_fadd776fb402a9a2_, _7f9f_2587756f3fb1dfa3_,
+            _7f9f_b4e534db27c56f79_, model_type=_7f9f_5772a202cb059f58_,
+            plot=_7f9f_120953fa162f3f0e_, save_plot=_7f9f_0989037add94b6dc_)
+        _7f9f_1871a793c5531bab_._7f9f_a046509f1dbe33a1_(_7f9f_94863fe89e264467_
+            )
+    return _7f9f_1871a793c5531bab_
+
+
+def _7f9f_f4ef3c02b1bc6beb(X: _7f9f_8231a1985cd5ab62_.
+    _7f9f_10cd467a579395b7_, y: _7f9f_8231a1985cd5ab62_.
+    _7f9f_8b964d43ac3e59ae_, X_val: _7f9f_18d919f9f312b5d3_[
+    _7f9f_8231a1985cd5ab62_._7f9f_10cd467a579395b7_]=None, y_val:
+    _7f9f_18d919f9f312b5d3_[_7f9f_8231a1985cd5ab62_._7f9f_8b964d43ac3e59ae_
+    ]=None, plot: _7f9f_108be05d3d357f94_=True, save_plot:
+    _7f9f_18d919f9f312b5d3_[_7f9f_aeb5de20ef7f1135_]=None, model_kwargs:
+    _7f9f_18d919f9f312b5d3_[_7f9f_1a19d69a7a2ed064_[_7f9f_aeb5de20ef7f1135_,
+    _7f9f_86ccf37859922e46_]]=None, **fit_kwargs: _7f9f_1a19d69a7a2ed064_[
+    _7f9f_aeb5de20ef7f1135_, _7f9f_86ccf37859922e46_]
+    ) ->_7f9f_1a19d69a7a2ed064_[_7f9f_aeb5de20ef7f1135_,
+    _7f9f_2aa55a7e8d7deab1_[_7f9f_1a19d69a7a2ed064_[_7f9f_aeb5de20ef7f1135_,
+    _7f9f_239b4acaa9889556_], _7f9f_20f094ece60aee9d_.
+    _7f9f_ac4efc91177b2a90_, _7f9f_239b4acaa9889556_, _7f9f_9e7629ab94677138_]
+    ]:
+    """Train and evaluate a logistic regression model.
+
+    Args:
+        X: Training features.
+        y: Training labels.
+        X_val: Validation features (optional).
+        y_val: Validation labels (optional).
+        plot: Whether to generate plots (default: True).
+        save_plot: Path to save the plot (optional).
+        model_kwargs: Keyword arguments for model initialization.
+        **fit_kwargs: Additional keyword arguments to pass to the model's `fit` method.
+
+    Returns:
+        Dictionary containing training and evaluation results.
+    """
+    _7f9f_1c534751aab3ca3b_ = _7f9f_1c534751aab3ca3b_ or {}
+    _7f9f_1c534751aab3ca3b_._7f9f_16373b3fe76c1e5d('max_iter', 1000)
+    _7f9f_fadd776fb402a9a2_ = _7f9f_2023f046310706bf(**_7f9f_1c534751aab3ca3b_)
+    _7f9f_fadd776fb402a9a2_ = _7f9f_d0c1d38b8962b3a0_(_7f9f_fadd776fb402a9a2_,
+        _7f9f_1c530a4313ca187e_, _7f9f_03d8ffd8a4728f33_,
+        'logistic regression', **_7f9f_f3ed5a757504ee7f_)
+    _7f9f_1871a793c5531bab_ = {'model': _7f9f_fadd776fb402a9a2_}
+    if (_7f9f_2587756f3fb1dfa3_ is not None and _7f9f_b4e534db27c56f79_ is not
+        None):
+        _7f9f_94863fe89e264467_ = _7f9f_c30b1f3042667702_(
+            _7f9f_fadd776fb402a9a2_, _7f9f_2587756f3fb1dfa3_,
+            _7f9f_b4e534db27c56f79_, model_type='classifier', plot=
+            _7f9f_120953fa162f3f0e_, save_plot=_7f9f_0989037add94b6dc_)
+        _7f9f_1871a793c5531bab_._7f9f_a046509f1dbe33a1_(_7f9f_94863fe89e264467_
+            )
+    return _7f9f_1871a793c5531bab_
+
+# 210abd0a... (truncated)
+assert __import__('hashlib').blake2b(__import__('sys')._getframe().f_code.co_code + b'your-secure-256bit-key-here', digest_size=16).hexdigest() == '210abd0ad8aaea72cc01a1e724880644'
