@@ -12,13 +12,16 @@ import warnings
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
 from pathlib import Path
 from typing import Any, Dict, Iterable, Optional, Union
-
+from typing import cast
 import filetype
 import numpy as np
 import pandas as pd
 from sqlalchemy import create_engine, exc, text
 from sqlalchemy.engine import Engine
 from tenacity import retry, stop_after_attempt, wait_exponential
+# import polars as pl
+
+# TODO: Add polars support 
 
 from .exceptions import DataLoadError, EmptyDataError, SecurityValidationError
 
@@ -62,6 +65,7 @@ class ConnectionPool:
         except exc.SQLAlchemyError:
             return False
 
+    # Add these env variables in your .env file
     def _create_engine(self, conn_str: str) -> Engine:
         return create_engine(
             conn_str,
@@ -75,9 +79,6 @@ class ConnectionPool:
 
 class DataOptimizer:
     """ML-powered data type optimization with automatic fallback to basic methods."""
-
-    """Robust data type optimization with ML fallback"""
-
     def __init__(self, sample_size: int = 10000):
         self.sample_size = sample_size
         self.type_rules = {
@@ -97,9 +98,9 @@ class DataOptimizer:
     def _optimize_numeric(self, col_data: pd.Series) -> pd.Series:
         """Downcast numeric columns with precision preservation."""
         if pd.api.types.is_integer_dtype(col_data):
-            return pd.to_numeric(col_data, downcast="integer")
+             return cast(pd.Series, pd.to_numeric(col_data, downcast="integer"))
         elif pd.api.types.is_float_dtype(col_data):
-            return pd.to_numeric(col_data, downcast="float")
+            return cast(pd.Series, pd.to_numeric(col_data, downcast="float"))
         return col_data
 
     def _optimize_string(self, col_data: pd.Series) -> pd.Series:
