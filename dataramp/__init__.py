@@ -5,7 +5,6 @@ from typing import Optional
 
 __version__ = "0.3.6"
 
-
 def get_git_revision() -> Optional[str]:
     try:
         git_revision = (
@@ -20,13 +19,11 @@ def get_git_revision() -> Optional[str]:
     except (subprocess.CalledProcessError, FileNotFoundError):
         return None
 
-
 def append_git_revision(version: str) -> str:
     git_revision = get_git_revision()
     if git_revision:
         version += f".dev{git_revision}"
     return version
-
 
 __version__ = append_git_revision(__version__)
 
