@@ -165,28 +165,6 @@ def _validate_file_type(file_path: Path, expected_type: str):
                 f"Invalid {expected_type} file signature. Detected: {guess.extension if guess else 'unknown'}"
             )
 
-
-def _validate_csv_structure(file_path: Path, sample_size: int = 1024):
-    """Validate CSV structure using Python's CSV sniffer."""
-    try:
-        with open(file_path, "rb") as f:
-            sample = f.read(sample_size)
-            if b"\0" in sample:
-                raise SecurityValidationError(
-                    "File contains null bytes (possible binary file)"
-                )
-
-            try:
-                dialect = csv.Sniffer().sniff(sample.decode("utf-8", errors="replace"))
-                if not dialect.delimiter:
-                    raise SecurityValidationError("Unable to detect CSV delimiter")
-            except csv.Error as e:
-                raise SecurityValidationError(f"CSV format error: {str(e)}")
-
-    except UnicodeDecodeError as e:
-        raise SecurityValidationError(f"Encoding error: {str(e)}") from e
-
-
 @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, max=10))
 def load_csv(
     file_path: Union[str, Path],
@@ -201,49 +179,42 @@ def load_csv(
     **kwargs,
 ) -> Union[pd.DataFrame, Iterable[pd.DataFrame]]:
     """Optimized CSV loader with parallel processing options."""
+    original_file_path_str = str(file_path)
     file_path = Path(file_path)
     _validate_file(file_path)
     _validate_file_signature(file_path, "csv")
 
     try:
-        if file_path.stat().st_size > MAX_FILE_SIZE:
+        file_size = file_path.stat().st_size
+        if file_size > MAX_FILE_SIZE:
             raise SecurityValidationError("File size exceeds maximum allowed limit")
 
-        if file_path.stat().st_size < MIN_PARALLEL_SIZE:
-            parallel = False  # Disable parallel for small files
+        effective_parallel = parallel
+        if file_size < MIN_PARALLEL_SIZE and parallel:
+            effective_parallel = False  # Disable parallel for small files
 
-        if parallel:
+        if effective_parallel:
             return _parallel_csv_load(file_path, use_dask, optimizer, **kwargs)
 
         if dtype is None:
             schema = infer_data_schema(file_path, encoding=encoding, **kwargs)
-            dtype = schema["dtypes"]
-            parse_dates = parse_dates or schema.get("parse_dates")
+            dtype = schema.get("dtypes")
+            if parse_dates is None and "parse_dates" in schema:
+                parse_dates = schema.get("parse_dates")
 
-        chunksize = _calculate_optimal_chunksize(file_path, chunksize)
-
-        reader = pd.read_csv(
-            file_path,
-            dtype=dtype,
-            parse_dates=parse_dates,
-            low_memory=low_memory,
-            chunksize=chunksize,
-            on_bad_lines="warn",
-            encoding=encoding,
-            **kwargs,
-        )
+        effective_chunksize = _calculate_optimal_chunksize(file_path, chunksize)
 
         reader = pd.read_csv(
             file_path,
             dtype=dtype,
             parse_dates=parse_dates,
             low_memory=low_memory,
-            chunksize=chunksize,
+            chunksize=effective_chunksize,
             on_bad_lines="warn",
             encoding=encoding,
             **kwargs,
         )
-        return _process_chunks(reader, optimizer)
+        return _process_chunks(reader, effective_parallel, file_path, optimizer)
 
     except pd.errors.ParserError as e:
         logger.error(f"CSV parsing error in {file_path.name}: {str(e)}")
@@ -455,25 +426,34 @@ def load_from_db(
         raise DataLoadError(f"Database operation failed: {str(e)}") from e
 
 
-def _calculate_optimal_chunksize(file_path: Path, user_chunksize: Optional[int]) -> int:
-    """Memory-aware chunk size calculation."""
-    import psutil
-
+def _calculate_optimal_chunksize(
+    file_path: Path, user_chunksize: Optional[int]
+) -> Optional[int]:
+    """Memory-aware chunk size calculation with CPU core consideration."""
     if user_chunksize:
         return user_chunksize
 
     try:
+        import psutil
+
         file_size = file_path.stat().st_size
-        avg_row_size = _estimate_row_size(file_path)
-        available_mem = psutil.virtual_memory().available if psutil else 4e9
+        mem_available = psutil.virtual_memory().available
+        cpu_cores = os.cpu_count() or 1
 
-        file_based_chunk = int(file_size / (avg_row_size * os.cpu_count()))
-        memory_based_chunk = int((available_mem * MEMORY_SAFETY_FACTOR) / avg_row_size)
+        chunk_size = max(
+            1,
+            int(
+                (mem_available * MEMORY_SAFETY_FACTOR)
+                / (cpu_cores * (file_size / 1000))
+            ),
+        )
 
-        return min(PARALLEL_CHUNK_SIZE, file_based_chunk, memory_based_chunk)
-    except Exception:
+        logger.info(f"Calculated chunk size: {chunk_size} rows")
+        return chunk_size
+
+    except ImportError:
+        logger.warning("psutil not installed, using conservative defaults")
         return PARALLEL_CHUNK_SIZE
-
 
 def _estimate_row_size(file_path: Path) -> float:
     """Robust row size estimation using multiple samples."""
@@ -637,37 +617,6 @@ def _validate_excel_file(file_path: Path):
 
     if file_path.suffix.lower() in (".xlsb", ".xlsm"):
         raise SecurityValidationError("Potentially unsafe Excel file format")
-
-
-def _calculate_optimal_chunksize(
-    file_path: Path, user_chunksize: Optional[int]
-) -> Optional[int]:
-    """Memory-aware chunk size calculation with CPU core consideration."""
-    if user_chunksize:
-        return user_chunksize
-
-    try:
-        import psutil
-
-        file_size = file_path.stat().st_size
-        mem_available = psutil.virtual_memory().available
-        cpu_cores = os.cpu_count() or 1
-
-        chunk_size = max(
-            1,
-            int(
-                (mem_available * MEMORY_SAFETY_FACTOR)
-                / (cpu_cores * (file_size / 1000))
-            ),
-        )
-
-        logger.info(f"Calculated chunk size: {chunk_size} rows")
-        return chunk_size
-
-    except ImportError:
-        logger.warning("psutil not installed, using conservative defaults")
-        return PARALLEL_CHUNK_SIZE
-
 
 def _process_chunks(
     reader: Iterable[pd.DataFrame],
