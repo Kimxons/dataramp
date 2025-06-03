@@ -1,5 +1,5 @@
 import io
-from functools import partials
+from functools import partial
 import csv
 import logging
 import os
@@ -16,9 +16,6 @@ import pandas as pd
 from sqlalchemy import create_engine, exc, text
 from sqlalchemy.engine import Engine
 from tenacity import retry, stop_after_attempt, wait_exponential
-# import polars as pl
-
-# TODO: Add polars support
 
 from .exceptions import DataLoadError, EmptyDataError, SecurityValidationError
 
@@ -59,7 +56,6 @@ class ConnectionPool:
         except exc.SQLAlchemyError:
             return False
 
-    # To users; Add these env variables in your .env file
     def _create_engine(self, conn_str: str) -> Engine:
         return create_engine(
             conn_str,
@@ -70,21 +66,30 @@ class ConnectionPool:
             connect_args={"application_name": "DataLoader"},
         )
 
+DEFAULT_SAMPLE_SIZE=10000
 class DataOptimizer:
-    def __init__(self, sample_size: int = 10000):
+    def __init__(self, sample_size: int = DEFAULT_SAMPLE_SIZE,max_category_cardinality: Optional[int] = None):
         self.sample_size = sample_size
         self.type_rules = {
-            "category_threshold": 0.1,
-            "float_precision": 32,
-            "int_threshold": 0.2,
+            "category_threshold_ratio": 0.1,
+            "float_downcast_to": "float",
+            "int_downcast_to": "integer",
         }
 
     def _is_datetime(self, col_data: pd.Series) -> bool:
         """Detect datetime columns with coercion validation."""
-        try:
-            pd.to_datetime(col_data, errors="raise")
+        try:    
+            if col_data.isnull().all():
+                return False
+            sample = col_data.dropna().head(min(len(col_data), 100))
+            if sample.empty:
+                if col_data.empty:
+                    return False
+                pd.to_datetime(col_data, errors="raise")
+            else:
+                pd.to_datetime(sample, errors="raise")
             return True
-        except (ValueError, TypeError):
+        except (ValueError, TypeError, AttributeError, pd.errors.ParserError): # Added AttributeError and ParserError
             return False
 
     def _optimize_numeric(self, col_data: pd.Series) -> pd.Series:
@@ -96,14 +101,13 @@ class DataOptimizer:
 
     def _optimize_string(self, col_data: pd.Series) -> pd.Series:
         """Convert strings to categories when cardinality is low."""
-        if 1 < col_data.nunique() <= MAX_CATEGORY_CARDINALITY:
+        if 1 < col_data.nunique() <= self.effective_max_category_cardinality:
             return col_data.astype("category")
         return col_data
 
     def _validate_optimization_integrity(
         self, original: pd.DataFrame, optimized: pd.DataFrame
     ):
-        """Ensure data integrity after transformations."""
         if original.shape != optimized.shape:
             raise RuntimeError(
                 f"Shape mismatch: original {original.shape}, optimized {optimized.shape}"
@@ -117,7 +121,7 @@ class DataOptimizer:
     @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, max=10))
     def optimize(self, df: pd.DataFrame) -> pd.DataFrame:
         if df.empty:
-            return df
+                    return df
 
         original_memory = df.memory_usage(deep=True).sum()
         optimized_df = df.copy()
@@ -211,11 +215,24 @@ def load_csv(
 def _validate_file_signature(file_path: Path, expected_type: str):
     """Validate file type using magic numbers."""
     guess = filetype.guess(str(file_path))
-    if not guess or guess.extension != expected_type.lower():
-        raise SecurityValidationError(
-            f"Invalid file type. Expected {expected_type}, got {guess.extension if guess else 'unknown'}"
-        )
 
+    if isinstance(expected_types, str):
+        expected_type_list = [expected_types.lower()]
+    else:
+        expected_type_list = [et.lower() for et in expected_types]
+
+    if not guess or guess.extension.lower not in expected_type_list():
+        actual_type = guess.extension if guess else "unknown"
+        if filetype.suffix.lower().replace('.', '') in expected_type_list:
+             logger.warning(
+                f"File signature for {file_path.name} caught as '{actual_type}', "
+                f"but extension '{file_path.suffix}' matches expected {expected_type_list}. Proceeding with caution."
+            )
+            return
+        raise SecurityValidationError(
+            f"Invalid file type for {file_path.name}. Expected {expected_type_list}, "
+            f"signature detected as '{actual_type}'."
+        )
 
 def _parallel_csv_load(
     file_path: Path, use_dask: bool, optimizer: Optional[DataOptimizer], **kwargs
@@ -230,12 +247,12 @@ def _parallel_csv_load(
 
     return _multiprocess_load(file_path, pd.read_csv, optimizer, **kwargs)
 
-
+# To consider dask or polar esp for larger files
 def _multiprocess_load(
-    file_path: Path, 
-    loader: callable,  
-    optimizer: Optional[DataOptimizer], 
-    **kwargs  
+    file_path: Path,
+    loader: callable,
+    optimizer: Optional[DataOptimizer],
+    **kwargs
 ) -> pd.DataFrame:
     opt = optimizer or DataOptimizer()
     load_with_kwargs = partial(loader, **kwargs)
@@ -274,13 +291,14 @@ def _multiprocess_load(
         except Exception as e_header:
             logger.warning(f"Could not read header for file with all empty chunks {file_path}: {e_header}")
             return pd.DataFrame()
-            
+
     return pd.concat(optimized_chunks, ignore_index=True)
 
+# To consder dask or polar esp for larger files
 def _chunked_file_reader(file_path: Path, chunksize: int, encoding: str = "utf-8"):
     with open(file_path, "r", encoding=encoding) as f:
         header = f.readline()
-        if not header: 
+        if not header:
             logger.warning(f"CSV file {file_path} is empty or has no header.")
             return
 
@@ -291,13 +309,13 @@ def _chunked_file_reader(file_path: Path, chunksize: int, encoding: str = "utf-8
             current_chunk_lines = []
             for _ in range(chunksize):
                 line = f.readline()
-                if not line: 
+                if not line:
                     break
                 current_chunk_lines.append(line)
 
-            if not current_chunk_lines: 
+            if not current_chunk_lines:
                 break
-            
+
             yield io.StringIO(header + "".join(current_chunk_lines))
 
 
@@ -311,11 +329,11 @@ def load_excel(
     file_path = Path(file_path)
     _validate_file(file_path)
     _validate_excel_file(file_path)
-    _validate_file_type
+    _validate_file_signature(file_path, ("xls", "xlsx"))
 
     try:
         df = pd.read_excel(file_path, sheet_name=sheet_name, dtype=dtype, **kwargs)
-        return optimize_memory(df)
+        return DataOptimizer.optimize(df)
     except Exception as e:
         logger.error(f"Excel loading error: {str(e)}")
         raise DataLoadError(f"Failed to load Excel file: {file_path}") from e
@@ -331,7 +349,7 @@ def load_json(
 
     try:
         df = pd.read_json(file_path, dtype=dtype, precise_float=precise_float, **kwargs)
-        return optimize_memory(df)
+        return DataOptimizer.optimize(df)
     except ValueError as e:
         logger.error(f"JSON syntax error: {str(e)}")
         raise DataLoadError("Invalid JSON structure") from e
@@ -349,7 +367,7 @@ def load_parquet(
         df = pd.read_parquet(
             file_path, columns=columns, memory_map=memory_map, **kwargs
         )
-        return optimize_memory(df)
+        return DataOptimizer.optimize(df)
     except Exception as e:
         logger.error(f"Parquet error: {str(e)}")
         raise DataLoadError("Parquet loading failed") from e
@@ -363,7 +381,7 @@ def load_feather(
 
     try:
         df = pd.read_feather(file_path, columns=columns, **kwargs)
-        return optimize_memory(df)
+        return DataOptimizer.optimize(df)
     except Exception as e:
         logger.error(f"Feather error: {str(e)}")
         raise DataLoadError("Feather loading failed") from e
@@ -376,7 +394,7 @@ def load_orc(
 
     try:
         df = pd.read_orc(file_path, columns=columns, **kwargs)
-        return optimize_memory(df)
+        return DataOptimizer.optimize(df)
     except Exception as e:
         logger.error(f"ORC error: {str(e)}")
         raise DataLoadError("ORC loading failed") from e
@@ -409,12 +427,11 @@ def load_from_db(
             df = pd.read_sql(text(query).bindparams(**(params or {})), conn, **kwargs)
             if df.empty:
                 logger.warning("Query returned empty result set")
-            return optimize_memory(df)
+            return DataOptimizer.optimize(df)
 
     except exc.SQLAlchemyError as e:
         logger.error(f"Database error: {str(e)}")
         raise DataLoadError(f"Database operation failed: {str(e)}") from e
-
 
 def _calculate_optimal_chunksize(
     file_path: Path, user_chunksize: Optional[int]
@@ -465,17 +482,32 @@ def _estimate_row_size(file_path: Path) -> float:
 
 
 def _parallel_db_load(
-    query: str, connection_string: str, index_col: str, chunks: int = 4, **kwargs
+    query: str, connection_string: str, index_col: str, chunks: int = 4,create_temp_index:bool=True, **kwargs
 ) -> pd.DataFrame:
     try:
+        tmp_idx_name = None
         pool = ConnectionPool()
-        engine = _get_db_engine(connection_string)
 
+        effective_conn_str = connection_string or os.getenv("DB_URI")
+        if not effective_conn_str:
+            raise ValueError("BD connection string is required for parallel DB load.")
+        engine = pool.get_engine(effective_conn_str)
+    
         with engine.connect() as conn:
-            # Verify index exists
+            if create_temp_index:
+                tmp_idx_name = f"tmp_dataloader_idx_{uuid.uuid4().hex[:10]}"
+
+                logger.info(f"Attempting to create temp index '{tmp_idx_name}' on column '{index_col}'.")
+                logger.warning(
+                    f"The syntax 'CREATE INDEX {tmp_idx_name} ON (subquery) ({index_col})' "
+                    "might be database-specific."
+                )
             conn.execute(
-                f"CREATE INDEX IF NOT EXISTS tmp_idx ON ({query}) ({index_col})"
-            )
+                    text(f"CREATE INDEX IF NOT EXISTS \"{tmp_idx_name}\" ON ({query}) ({index_col})")
+                )
+                conn.commit()
+
+            logger.info(f"Temporary index '{tmp_idx_name}' created successfully.")
 
             min_max = conn.execute(
                 f"""
@@ -490,23 +522,32 @@ def _parallel_db_load(
             for start, end in zip(ranges[:-1], ranges[1:])
         ]
 
+        futures = []
         with ThreadPoolExecutor(max_workers=chunks) as executor:
-            futures = []
-            for q in queries:
+            for q_segment in queries:
                 futures.append(
-                    executor.submit(load_from_db, q, connection_string, **kwargs)
+                    executor.submit(load_from_db, q_segment, effective_conn_str, parallel=False, **kwargs) # parallel=False for recursive calls
                 )
-
             results = [f.result() for f in futures]
-
+        
+        if not results:
+            return pd.DataFrame() 
         return pd.concat(results, ignore_index=True)
 
     except exc.SQLAlchemyError as e:
-        logger.error(f"Parallel load failed: {str(e)}")
-        raise DataLoadError(f"Parallel database operation failed: {str(e)}")
+        logger.error(f"Parallel database load failed: {str(e)}")
+        raise DataLoadError(f"Parallel database operation failed: {str(e)}") from e
     finally:
-        with engine.connect() as conn:
-            conn.execute("DROP INDEX IF EXISTS tmp_idx")
+        if create_temp_index and tmp_idx_name and engine: # Check if engine was initialized
+            try:
+                with engine.connect() as conn:
+                    logger.info(f"Attempting to drop temporary index '{tmp_idx_name}'.")
+                    conn.execute(text(f"DROP INDEX IF EXISTS \"{tmp_idx_name}\""))
+                    conn.commit() #wekelea kwa DDL
+                    logger.info(f"Temporary index '{tmp_idx_name}' dropped.")
+            except exc.SQLAlchemyError as e_drop:
+                logger.warning(f"Could not drop temporary index '{tmp_idx_name}': {str(e_drop)}")
+
 
 
 def _process_chunks(
@@ -525,32 +566,14 @@ def _process_chunks(
 def _parallel_chunk_processing(
     reader: Iterable[pd.DataFrame], optimizer: DataOptimizer
 ) -> Iterable[pd.DataFrame]:
-    with ThreadPoolExecutor(max_workers=os.cpu_count()) as executor:
+    with ThreadPoolExecutor(max_workers=MAX_PARALLEL_WORKERS) as executor:
         yield from executor.map(optimizer.optimize, reader)
-
-def optimize_memory(df: pd.DataFrame) -> pd.DataFrame:
-    try:
-        for col in df.columns:
-            col_type = df[col].dtype
-            if pd.api.types.is_object_dtype(col_type):
-                unique_count = df[col].nunique()
-                if 1 < unique_count <= MAX_CATEGORY_CARDINALITY:
-                    df[col] = df[col].astype("category")
-            elif pd.api.types.is_integer_dtype(col_type):
-                df[col] = pd.to_numeric(df[col], downcast="integer")
-            elif pd.api.types.is_float_dtype(col_type):
-                df[col] = pd.to_numeric(df[col], downcast="float")
-        return df
-    except Exception as e:
-        logger.error(f"Memory optimization failed: {str(e)}")
-        return df
-
 
 def infer_data_schema(
     file_path: Path, sample_size: int = DEFAULT_SAMPLE_SIZE, **reader_args
 ) -> Dict[str, Any]:
     sample = pd.read_csv(file_path, nrows=sample_size, **reader_args)
-    optimized = optimize_memory(sample)
+    optimized = DataOptimizer.optimize(sample)
     return {
         "dtypes": optimized.dtypes.to_dict(),
         "parse_dates": [
@@ -613,7 +636,7 @@ def _stream_db_results(
             if not chunk:
                 break
             df = pd.DataFrame(chunk, columns=result.keys())
-            yield optimize_memory(df)
+            yield DataOptimizer.optimize(df)
 
 def data_load(
     source: Union[str, Path], method: str = "csv", **kwargs
