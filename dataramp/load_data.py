@@ -1,8 +1,5 @@
-"""Enterprise-grade data loading module with CPU optimization and security safeguards.
-
-Supporting formats: CSV, Excel, JSON, Parquet, Feather, ORC, SQL databases.
-"""
-
+import io
+from functools import partials
 import csv
 import logging
 import os
@@ -21,7 +18,7 @@ from sqlalchemy.engine import Engine
 from tenacity import retry, stop_after_attempt, wait_exponential
 # import polars as pl
 
-# TODO: Add polars support 
+# TODO: Add polars support
 
 from .exceptions import DataLoadError, EmptyDataError, SecurityValidationError
 
@@ -36,10 +33,7 @@ PARALLEL_CHUNK_SIZE = int(os.getenv("PARALLEL_CHUNK_SIZE", 10**5))  # 100k rows
 MAX_FILE_SIZE = 1024**3 * 10  # 10GB
 MIN_PARALLEL_SIZE = 1024**2 * 100  # 100MB
 
-
 class ConnectionPool:
-    """Thread-safe database connection pool with health checks."""
-
     _instance = None
     _lock = threading.Lock()
 
@@ -65,7 +59,7 @@ class ConnectionPool:
         except exc.SQLAlchemyError:
             return False
 
-    # Add these env variables in your .env file
+    # To users; Add these env variables in your .env file
     def _create_engine(self, conn_str: str) -> Engine:
         return create_engine(
             conn_str,
@@ -76,9 +70,7 @@ class ConnectionPool:
             connect_args={"application_name": "DataLoader"},
         )
 
-
 class DataOptimizer:
-    """ML-powered data type optimization with automatic fallback to basic methods."""
     def __init__(self, sample_size: int = 10000):
         self.sample_size = sample_size
         self.type_rules = {
@@ -96,7 +88,6 @@ class DataOptimizer:
             return False
 
     def _optimize_numeric(self, col_data: pd.Series) -> pd.Series:
-        """Downcast numeric columns with precision preservation."""
         if pd.api.types.is_integer_dtype(col_data):
              return cast(pd.Series, pd.to_numeric(col_data, downcast="integer"))
         elif pd.api.types.is_float_dtype(col_data):
@@ -125,7 +116,6 @@ class DataOptimizer:
 
     @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, max=10))
     def optimize(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Optimize dataframe with memory safety checks."""
         if df.empty:
             return df
 
@@ -151,9 +141,7 @@ class DataOptimizer:
             logger.error(f"Optimization failed: {str(e)}")
             return df
 
-
 def _validate_file_type(file_path: Path, expected_type: str):
-    """Enhanced file validation with CSV sniffing."""
     if expected_type.lower() == "csv":
         if file_path.suffix.lower() != ".csv":
             raise SecurityValidationError("Invalid CSV file extension")
@@ -178,7 +166,6 @@ def load_csv(
     optimizer: Optional[DataOptimizer] = None,
     **kwargs,
 ) -> Union[pd.DataFrame, Iterable[pd.DataFrame]]:
-    """Optimized CSV loader with parallel processing options."""
     original_file_path_str = str(file_path)
     file_path = Path(file_path)
     _validate_file(file_path)
@@ -214,7 +201,7 @@ def load_csv(
             encoding=encoding,
             **kwargs,
         )
-        return _process_chunks(reader, effective_parallel, file_path, optimizer)
+        return _process_chunks(reader, effective_parallel, optimizer=optimizer)
 
     except pd.errors.ParserError as e:
         logger.error(f"CSV parsing error in {file_path.name}: {str(e)}")
@@ -233,7 +220,6 @@ def _validate_file_signature(file_path: Path, expected_type: str):
 def _parallel_csv_load(
     file_path: Path, use_dask: bool, optimizer: Optional[DataOptimizer], **kwargs
 ) -> pd.DataFrame:
-    """Internal parallel CSV loader with adaptive chunking."""
     try:
         if use_dask:
             import dask.dataframe as dd
@@ -246,46 +232,73 @@ def _parallel_csv_load(
 
 
 def _multiprocess_load(
-    file_path: Path, loader: callable, optimizer: Optional[DataOptimizer], **kwargs
+    file_path: Path, 
+    loader: callable,  
+    optimizer: Optional[DataOptimizer], 
+    **kwargs  
 ) -> pd.DataFrame:
-    """Adaptive parallel processing with resource awareness."""
+    opt = optimizer or DataOptimizer()
+    load_with_kwargs = partial(loader, **kwargs)
+    file_encoding = kwargs.get('encoding', 'utf-8')
+
+    raw_df_chunks = []
+    chunk_iterator = _chunked_file_reader(file_path, PARALLEL_CHUNK_SIZE, encoding=file_encoding)
+
     try:
         with ProcessPoolExecutor(max_workers=MAX_PARALLEL_WORKERS) as executor:
-            chunks = list(
-                executor.map(
-                    loader,
-                    _chunked_file_reader(file_path, PARALLEL_CHUNK_SIZE),
-                    [kwargs] * os.cpu_count(),
-                )
-            )
+            raw_df_chunks = list(executor.map(load_with_kwargs, chunk_iterator))
     except pickle.PicklingError:
+        logger.warning("PicklingError with ProcessPoolExecutor, falling back to ThreadPoolExecutor for CSV loading.")
         with ThreadPoolExecutor(max_workers=MAX_PARALLEL_WORKERS) as executor:
-            chunks = list(
-                executor.map(
-                    lambda x: loader(x, **kwargs),
-                    _chunked_file_reader(file_path, PARALLEL_CHUNK_SIZE),
-                )
-            )
+            raw_df_chunks = list(executor.map(load_with_kwargs, chunk_iterator))
+    except Exception as e:
+        logger.error(f"Error during parallel CSV loading for {file_path}: {e}")
+        raise DataLoadError(f"Parallel CSV loading failed for {file_path}") from e
 
-    return pd.concat(
-        [(optimizer or DataOptimizer()).optimize(chunk) for chunk in chunks]
-    )
+    if not raw_df_chunks:
+        logger.warning(f"No data chunks were loaded from {file_path}. The file might be empty or contain only a header.")
+        try:
+            header_kwargs = {k: v for k, v in kwargs.items() if k != 'chunksize'}
+            return pd.read_csv(file_path, nrows=0, **header_kwargs)
+        except Exception as e_header:
+            logger.warning(f"Could not read header for empty file {file_path}: {e_header}")
+            return pd.DataFrame()
 
+    optimized_chunks = [opt.optimize(chunk) for chunk in raw_df_chunks if not chunk.empty]
 
-def _chunked_file_reader(file_path: Path, chunksize: int):
-    """Generate file chunks for parallel processing."""
-    with open(file_path, "r") as f:
+    if not optimized_chunks:
+        logger.warning(f"All loaded chunks from {file_path} were empty after processing.")
+        try:
+            header_kwargs = {k: v for k, v in kwargs.items() if k != 'chunksize'}
+            return pd.read_csv(file_path, nrows=0, **header_kwargs)
+        except Exception as e_header:
+            logger.warning(f"Could not read header for file with all empty chunks {file_path}: {e_header}")
+            return pd.DataFrame()
+            
+    return pd.concat(optimized_chunks, ignore_index=True)
+
+def _chunked_file_reader(file_path: Path, chunksize: int, encoding: str = "utf-8"):
+    with open(file_path, "r", encoding=encoding) as f:
         header = f.readline()
+        if not header: 
+            logger.warning(f"CSV file {file_path} is empty or has no header.")
+            return
+
+        if not header.endswith('\n'):
+            header += '\n'
+
         while True:
-            lines = []
+            current_chunk_lines = []
             for _ in range(chunksize):
                 line = f.readline()
-                if not line:
+                if not line: 
                     break
-                lines.append(line)
-            if not lines:
+                current_chunk_lines.append(line)
+
+            if not current_chunk_lines: 
                 break
-            yield pd.read_csv([header] + lines)
+            
+            yield io.StringIO(header + "".join(current_chunk_lines))
 
 
 @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, max=10))
@@ -295,7 +308,6 @@ def load_excel(
     dtype: Optional[Dict] = None,
     **kwargs,
 ) -> pd.DataFrame:
-    """Secure Excel loader with macro validation."""
     file_path = Path(file_path)
     _validate_file(file_path)
     _validate_excel_file(file_path)
@@ -308,14 +320,12 @@ def load_excel(
         logger.error(f"Excel loading error: {str(e)}")
         raise DataLoadError(f"Failed to load Excel file: {file_path}") from e
 
-
 def load_json(
     file_path: Union[str, Path],
     dtype: Optional[Dict] = None,
     precise_float: bool = False,
     **kwargs,
 ) -> pd.DataFrame:
-    """JSON loader with schema validation."""
     file_path = Path(file_path)
     _validate_file(file_path)
 
@@ -326,14 +336,12 @@ def load_json(
         logger.error(f"JSON syntax error: {str(e)}")
         raise DataLoadError("Invalid JSON structure") from e
 
-
 def load_parquet(
     file_path: Union[str, Path],
     columns: Optional[list] = None,
     memory_map: bool = True,
     **kwargs,
 ) -> pd.DataFrame:
-    """High-performance Parquet loader."""
     file_path = Path(file_path)
     _validate_file(file_path)
 
@@ -350,7 +358,6 @@ def load_parquet(
 def load_feather(
     file_path: Union[str, Path], columns: Optional[list] = None, **kwargs
 ) -> pd.DataFrame:
-    """Feather format loader."""
     file_path = Path(file_path)
     _validate_file(file_path)
 
@@ -361,11 +368,9 @@ def load_feather(
         logger.error(f"Feather error: {str(e)}")
         raise DataLoadError("Feather loading failed") from e
 
-
 def load_orc(
     file_path: Union[str, Path], columns: Optional[list] = None, **kwargs
 ) -> pd.DataFrame:
-    """ORC format loader."""
     file_path = Path(file_path)
     _validate_file(file_path)
 
@@ -388,21 +393,6 @@ def load_from_db(
     index_col: Optional[str] = None,
     **kwargs,
 ) -> Union[pd.DataFrame, Iterable[pd.DataFrame]]:
-    """Secure database loader with parameterized queries.
-
-    Args:
-        query: SQL query (SELECT only)
-        connection_string: Database connection URI
-        params: Query parameters
-        streaming: Return iterator of chunks
-        chunk_size: Rows per chunk
-        parallel: Enable parallel loading
-        index_col: Index column
-        **kwargs: pandas.read_sql arguments
-
-    Returns:
-        DataFrame or iterator of DataFrames
-    """
     if parallel and index_col:
         return _parallel_db_load(query, connection_string, index_col, **kwargs)
 
@@ -456,7 +446,6 @@ def _calculate_optimal_chunksize(
         return PARALLEL_CHUNK_SIZE
 
 def _estimate_row_size(file_path: Path) -> float:
-    """Robust row size estimation using multiple samples."""
     import random
 
     sample_points = 5
@@ -478,8 +467,8 @@ def _estimate_row_size(file_path: Path) -> float:
 def _parallel_db_load(
     query: str, connection_string: str, index_col: str, chunks: int = 4, **kwargs
 ) -> pd.DataFrame:
-    """Robust parallel database loading with connection pooling."""
     try:
+        pool = ConnectionPool()
         engine = _get_db_engine(connection_string)
 
         with engine.connect() as conn:
@@ -523,28 +512,23 @@ def _parallel_db_load(
 def _process_chunks(
     reader: Iterable[pd.DataFrame],
     parallel: bool,
-    file_path: Path,
     optimizer: Optional[DataOptimizer] = None,
 ) -> Iterable[pd.DataFrame]:
-    """Process data chunks with optional parallelism."""
     opt = optimizer or DataOptimizer()
     if parallel:
-        return _parallel_chunk_processing(reader, file_path, opt)
+        return _parallel_chunk_processing(reader, opt)
 
     for chunk in reader:
         yield opt.optimize(chunk)
 
 
 def _parallel_chunk_processing(
-    reader: Iterable[pd.DataFrame], file_path: Path, optimizer: DataOptimizer
+    reader: Iterable[pd.DataFrame], optimizer: DataOptimizer
 ) -> Iterable[pd.DataFrame]:
-    """Parallel chunk processing using ThreadPool."""
     with ThreadPoolExecutor(max_workers=os.cpu_count()) as executor:
         yield from executor.map(optimizer.optimize, reader)
 
-
 def optimize_memory(df: pd.DataFrame) -> pd.DataFrame:
-    """Reduce memory usage through type optimization."""
     try:
         for col in df.columns:
             col_type = df[col].dtype
@@ -565,7 +549,6 @@ def optimize_memory(df: pd.DataFrame) -> pd.DataFrame:
 def infer_data_schema(
     file_path: Path, sample_size: int = DEFAULT_SAMPLE_SIZE, **reader_args
 ) -> Dict[str, Any]:
-    """Generate optimized data schema with statistical sampling."""
     sample = pd.read_csv(file_path, nrows=sample_size, **reader_args)
     optimized = optimize_memory(sample)
     return {
@@ -579,7 +562,6 @@ def infer_data_schema(
 
 
 def _validate_file(file_path: Path):
-    """Comprehensive file validation."""
     if not file_path.exists():
         raise FileNotFoundError(f"File not found: {file_path}")
     if file_path.stat().st_size == 0:
@@ -611,56 +593,12 @@ def _validate_csv_structure(file_path: Path, sample_size: int = 1024):
 def _validate_excel_file(file_path: Path):
     """Excel file security checks."""
     warnings.warn(
-        "Excel files may contain malicious macros. Only open trusted files.",
+        "Excel files may contain malicious macros. Only open trusted files can be used.",
         UserWarning,
     )
 
     if file_path.suffix.lower() in (".xlsb", ".xlsm"):
         raise SecurityValidationError("Potentially unsafe Excel file format")
-
-def _process_chunks(
-    reader: Iterable[pd.DataFrame],
-    parallel: bool,
-    file_path: Path,
-    optimizer: Optional[DataOptimizer] = None,
-) -> Iterable[pd.DataFrame]:
-    """Process data chunks with optional parallelism."""
-    opt = optimizer or DataOptimizer()
-    if parallel:
-        return _parallel_chunk_processing(reader, file_path, opt)
-
-    for chunk in reader:
-        yield opt.optimize(chunk)
-
-
-def _parallel_chunk_processing(
-    reader: Iterable[pd.DataFrame], file_path: Path
-) -> Iterable[pd.DataFrame]:
-    """Parallel chunk processing using ThreadPool."""
-    from concurrent.futures import ThreadPoolExecutor
-
-    def process(chunk):
-        return optimize_memory(chunk)
-
-    with ThreadPoolExecutor(max_workers=os.cpu_count()) as executor:
-        yield from executor.map(process, reader)
-
-
-_CONNECTION_POOL = {}
-
-
-def _get_db_engine(connection_string: str):
-    """Database connection pool manager."""
-    if connection_string not in _CONNECTION_POOL:
-        _CONNECTION_POOL[connection_string] = create_engine(
-            connection_string,
-            pool_size=10,
-            max_overflow=20,
-            pool_recycle=3600,
-            connect_args={"application_name": "DataLoader"},
-        )
-    return _CONNECTION_POOL[connection_string]
-
 
 def _stream_db_results(
     engine: Engine, query: str, params: Optional[Dict], chunk_size: int
@@ -676,7 +614,6 @@ def _stream_db_results(
                 break
             df = pd.DataFrame(chunk, columns=result.keys())
             yield optimize_memory(df)
-
 
 def data_load(
     source: Union[str, Path], method: str = "csv", **kwargs
