@@ -13,10 +13,10 @@ from typing import cast
 import filetype
 import numpy as np
 import pandas as pd
+import uuid
 from sqlalchemy import create_engine, exc, text
 from sqlalchemy.engine import Engine
 from tenacity import retry, stop_after_attempt, wait_exponential
-
 from .exceptions import DataLoadError, EmptyDataError, SecurityValidationError
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
@@ -24,6 +24,7 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_SAMPLE_SIZE = 10_000
 MAX_CATEGORY_CARDINALITY = 1000
+DEFAULT_SAMPLE_SIZE=10000
 MAX_PARALLEL_WORKERS = int(os.getenv("MAX_PARALLEL_WORKERS", os.cpu_count() or 4))
 MEMORY_SAFETY_FACTOR = float(os.getenv("MEMORY_SAFETY_FACTOR", 0.7))
 PARALLEL_CHUNK_SIZE = int(os.getenv("PARALLEL_CHUNK_SIZE", 10**5))  # 100k rows
@@ -66,7 +67,6 @@ class ConnectionPool:
             connect_args={"application_name": "DataLoader"},
         )
 
-DEFAULT_SAMPLE_SIZE=10000
 class DataOptimizer:
     def __init__(self, sample_size: int = DEFAULT_SAMPLE_SIZE,max_category_cardinality: Optional[int] = None):
         self.sample_size = sample_size
@@ -547,8 +547,6 @@ def _parallel_db_load(
                     logger.info(f"Temporary index '{tmp_idx_name}' dropped.")
             except exc.SQLAlchemyError as e_drop:
                 logger.warning(f"Could not drop temporary index '{tmp_idx_name}': {str(e_drop)}")
-
-
 
 def _process_chunks(
     reader: Iterable[pd.DataFrame],
