@@ -1,10 +1,3 @@
-"""Module for training and evaluating machine learning models.
-
-This module provides functions for training and evaluating various machine learning models,
-including linear regression, random forest, and logistic regression. It includes utilities
-for model evaluation, metrics calculation, and visualization.
-"""
-
 import logging
 from typing import Any, Dict, Optional, Union
 
