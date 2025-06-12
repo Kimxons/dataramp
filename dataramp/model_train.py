@@ -19,7 +19,6 @@ from sklearn.metrics import (
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 logger = logging.getLogger(__name__)
 
-
 def train_model(
     model: BaseEstimator,
     X: pd.DataFrame,
@@ -27,22 +26,6 @@ def train_model(
     model_name: str,
     **fit_kwargs: Dict[str, Any],
 ) -> BaseEstimator:
-    """Train a machine learning model.
-
-    Args:
-        model: The model to train.
-        X: Training features.
-        y: Training labels.
-        model_name: Name of the model (for logging purposes).
-        **fit_kwargs: Additional keyword arguments to pass to the model's `fit` method.
-
-    Returns:
-        The trained model.
-
-    Raises:
-        ValueError: If the input data is invalid.
-        RuntimeError: If the model training fails.
-    """
     if X.empty or y.empty:
         raise ValueError("Input data (X or y) is empty.")
 
@@ -55,7 +38,6 @@ def train_model(
         logger.error(f"Error training {model_name} model: {e}")
         raise RuntimeError(f"Failed to train {model_name} model: {e}")
 
-
 def evaluate_model(
     model: BaseEstimator,
     X: pd.DataFrame,
@@ -64,22 +46,6 @@ def evaluate_model(
     plot: bool = True,
     save_plot: Optional[str] = None,
 ) -> Dict[str, Union[Dict[str, float], np.ndarray, float]]:
-    """Evaluate a machine learning model.
-
-    Args:
-        model: The trained model.
-        X: Validation features.
-        y: Validation labels.
-        model_type: Type of model ('classifier' or 'regressor').
-        plot: Whether to generate plots (default: True).
-        save_plot: Path to save the plot (optional).
-
-    Returns:
-        Dictionary containing evaluation results.
-
-    Raises:
-        ValueError: If model_type is invalid or mismatched with the model.
-    """
     if model_type not in ["classifier", "regressor"]:
         raise ValueError("model_type must be 'classifier' or 'regressor'.")
 
@@ -163,21 +129,6 @@ def train_linear_regression(
     model_kwargs: Optional[Dict[str, Any]] = None,
     **fit_kwargs: Dict[str, Any],
 ) -> Dict[str, Union[Dict[str, float], np.ndarray, float, BaseEstimator]]:
-    """Train and evaluate a linear regression model.
-
-    Args:
-        X: Training features.
-        y: Training labels.
-        X_val: Validation features (optional).
-        y_val: Validation labels (optional).
-        plot: Whether to generate plots (default: True).
-        save_plot: Path to save the plot (optional).
-        model_kwargs: Keyword arguments for model initialization.
-        **fit_kwargs: Additional keyword arguments to pass to the model's `fit` method.
-
-    Returns:
-        Dictionary containing training and evaluation results.
-    """
     model_kwargs = model_kwargs or {}
     model = LinearRegression(**model_kwargs)
     model = train_model(model, X, y, "linear regression", **fit_kwargs)
@@ -202,22 +153,6 @@ def train_random_forest(
     model_kwargs: Optional[Dict[str, Any]] = None,
     **fit_kwargs: Dict[str, Any],
 ) -> Dict[str, Union[Dict[str, float], np.ndarray, float, BaseEstimator]]:
-    """Train and evaluate a random forest model.
-
-    Args:
-        X: Training features.
-        y: Training labels.
-        X_val: Validation features (optional).
-        y_val: Validation labels (optional).
-        model_type: Type of model ('classifier' or 'regressor').
-        plot: Whether to generate plots (default: True).
-        save_plot: Path to save the plot (optional).
-        model_kwargs: Keyword arguments for model initialization.
-        **fit_kwargs: Additional keyword arguments to pass to the model's `fit` method.
-
-    Returns:
-        Dictionary containing training and evaluation results.
-    """
     model_kwargs = model_kwargs or {}
     if model_type == "classifier":
         model = RandomForestClassifier(**model_kwargs)
@@ -247,21 +182,6 @@ def train_logistic_regression(
     model_kwargs: Optional[Dict[str, Any]] = None,
     **fit_kwargs: Dict[str, Any],
 ) -> Dict[str, Union[Dict[str, float], np.ndarray, float, BaseEstimator]]:
-    """Train and evaluate a logistic regression model.
-
-    Args:
-        X: Training features.
-        y: Training labels.
-        X_val: Validation features (optional).
-        y_val: Validation labels (optional).
-        plot: Whether to generate plots (default: True).
-        save_plot: Path to save the plot (optional).
-        model_kwargs: Keyword arguments for model initialization.
-        **fit_kwargs: Additional keyword arguments to pass to the model's `fit` method.
-
-    Returns:
-        Dictionary containing training and evaluation results.
-    """
     model_kwargs = model_kwargs or {}
     model_kwargs.setdefault("max_iter", 1000)
     model = LogisticRegression(**model_kwargs)
