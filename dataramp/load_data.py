@@ -89,7 +89,7 @@ class DataOptimizer:
             else:
                 pd.to_datetime(sample, errors="raise")
             return True
-        except (ValueError, TypeError, AttributeError, pd.errors.ParserError): # Added AttributeError and ParserError
+        except (ValueError, TypeError, AttributeError, pd.errors.ParserError): 
             return False
 
     def _optimize_numeric(self, col_data: pd.Series) -> pd.Series:
@@ -210,27 +210,31 @@ def load_csv(
     except pd.errors.ParserError as e:
         logger.error(f"CSV parsing error in {file_path.name}: {str(e)}")
         raise DataLoadError(f"CSV parsing failed: {file_path.name}") from e
-
-def _validate_file_signature(file_path: Path, expected_type: str):
-    guess = filetype.guess(str(file_path))
+        
+def _validate_file_signature(file_path: Path, expected_type):
     if isinstance(expected_type, str):
         expected_type_list = [expected_type.lower()]
-    else:
+    elif hasattr(expected_type, '__iter__'):
         expected_type_list = [et.lower() for et in expected_type]
-    actual_type = guess.extension if guess else "unknown"
+    else:
+        raise TypeError("expected_type must be a string or iterable of strings")
 
-    if not guess or guess.extension.lower() not in expected_type_list:
-        if file_path.suffix.lower().replace('.', '') in expected_type_list:
+    guess = filetype.guess(str(file_path))
+    actual_type = guess.extension.lower() if guess and guess.extension else "unknown"
+    file_ext = file_path.suffix.lower().lstrip(".")
+
+    if not guess or actual_type not in expected_type_list:
+        if file_ext in expected_type_list:
             logger.warning(
-                f"File signature for {file_path.name} caught as '{actual_type}', "
+                f"File signature for '{file_path.name}' detected as '{actual_type}', "
                 f"but extension '{file_path.suffix}' matches expected {expected_type_list}. Proceeding with caution."
             )
-            return 
-        
-        # raise SecurityValidationError(
-        #     f"Invalid file type for {file_path.name}. Expected {expected_type_list}, "
-        #     f"signature detected as '{actual_type}'."
-        # )
+            return  
+        raise SecurityValidationError(
+            f"Invalid file type for '{file_path.name}'. Expected {expected_type_list}, "
+            f"signature detected as '{actual_type}'."
+        )
+    return
 
 def _parallel_csv_load(
     file_path: Path, use_dask: bool, optimizer: Optional[DataOptimizer], **kwargs
